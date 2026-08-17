@@ -27,10 +27,15 @@ const VOICE_LIVE = MOCK_MODE ? import.meta.env.VITE_VOICE_LIVE === 'true' : true
 export async function structureListing(audioBlob, language, opts = {}) {
   if (!VOICE_LIVE || opts.forceFixture) {
     await delay(1800) // "processing…" beat for the demo
+    // The fixture is always complete — the follow-up never triggers offline.
     return {
-      ...mockVoiceResult,
-      languages: [language, ...mockVoiceResult.languages.filter((l) => l !== language)],
-      original_language: language,
+      listing: {
+        ...mockVoiceResult,
+        languages: [language, ...mockVoiceResult.languages.filter((l) => l !== language)],
+        original_language: language,
+      },
+      missing: [],
+      question: null,
     }
   }
 
@@ -42,6 +47,9 @@ export async function structureListing(audioBlob, language, opts = {}) {
     form.append('audio', audioBlob, 'recording.wav')
   }
   form.append('language', language)
+  if (opts.previous) {
+    form.append('previous', JSON.stringify(opts.previous))
+  }
 
   const headers = {}
   const token = localStorage.getItem('app_token')

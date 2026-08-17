@@ -37,6 +37,23 @@
 
 ## Voice listing JSON shape (defined by AI, encoded by BACKEND)
 
+`POST /voice/structure` response is an envelope — the listing plus follow-up info:
+
+```json
+{
+  "listing": { ...ListingJSON below... },
+  "missing": ["price"],
+  "question": "आप प्रति व्यक्ति कितने रुपये लेते हैं?"
+}
+```
+
+- `missing`: critical numbers the host did not mention (`price`, `duration_minutes`, `capacity`)
+- `question`: one spoken follow-up in the host's language (`null` when nothing is missing)
+- Frontend: when `missing` is non-empty, play `question` aloud and record a short reply; send it back
+  with `previous` = the draft `listing` (form field, JSON string). The engine merges the reply into
+  the draft and returns the same envelope. Cap at 2 rounds, then let the host finish in the form.
+- Numeric fields the host did not mention come back as `null` from the engines — never guessed.
+
 ```json
 {
   "host_name": "",
