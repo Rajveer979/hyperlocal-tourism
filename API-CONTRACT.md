@@ -39,6 +39,8 @@
 
 ```json
 {
+  "host_name": "",
+  "village_name": "",
   "title": "",
   "description": "",
   "category": "food|craft|heritage|nature|other",
@@ -70,6 +72,22 @@ experience{...} + distance_km + route_progress (0–1)
 ```
 {time, place, lat, lng, note, type: experience|poi|travel}
 ```
+
+## Voice engine fallback (decided — backend implements this)
+
+`POST /voice/structure` accepts **audio OR transcript** + `language`, and returns
+the ListingJSON above. The backend tries engines automatically, invisible to the
+frontend; every engine returns the identical shape.
+
+| Layer | Engine | Call pattern | Model(s) | Key needed |
+|---|---|---|---|---|
+| 1 | **Gemini** | one call (audio → JSON) | `gemini-3.5-flash` (⚠️ NOT `gemini-3.6-flash` — that model 500s on audio; 3.5/2.5 accept audio fine) | `GEMINI_API_KEY` |
+| 2 | **Groq** | two calls (transcribe → structure) | `whisper-large-v3-turbo` + `openai/gpt-oss-120b` (`llama-3.3-70b-versatile` was retired from Groq) | `GROQ_API_KEY` |
+| 3 | **Fixture** | hardcoded Hindi sample | — | none (demo never breaks) |
+
+Config: `VOICE_ENGINE=auto|gemini|groq|fixture` in `backend/.env`.
+`auto` = Gemini → Groq → fixture. Audio is sent inline (WAV, under 20 MB).
+Frontend toggles with `VITE_MOCK_MODE=false` in `frontend/.env`.
 
 ## Gotchas
 
