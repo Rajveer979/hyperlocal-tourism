@@ -17,15 +17,7 @@ SAMPLE_LISTING = {
         "Learn to make thepla at Kamlaben's home — on the chulha, with real "
         "Gujarati spices. You eat what you cook and carry the recipe home."
     ),
-    "category": "food",
     "price": 300,
-    "duration_minutes": 90,
-    "capacity": 6,
-    "availability": {
-        "days": ["Mon", "Wed", "Fri", "Sat"],
-        "slots": ["10:00", "13:00"],
-        "max_per_slot": 6,
-    },
-    "languages": ["hi", "gu"],
+    "languages": ["hi", "en"],
     "original_language": "hi",
 }

@@ -11,14 +11,8 @@ export const CATEGORIES = [
 
 export const CATEGORY_MAP = Object.fromEntries(CATEGORIES.map((c) => [c.value, c]))
 
-// Languages spoken by hosts (F16 language-match filter). Recording languages
-// for the voice flow (F1) live in utils/voice-languages — this list is broader.
 export const LANGUAGES = [
   { code: 'hi', label: 'Hindi' },
-  { code: 'gu', label: 'Gujarati' },
-  { code: 'mr', label: 'Marathi' },
-  { code: 'ta', label: 'Tamil' },
-  { code: 'bn', label: 'Bengali' },
   { code: 'en', label: 'English' },
 ]
 
@@ -27,10 +21,6 @@ export const LANGUAGE_MAP = Object.fromEntries(LANGUAGES.map((l) => [l.code, l])
 // SpeechSynthesis voices (F14 listen button) keyed by language code.
 export const TTS_VOICE_LANG = {
   hi: 'hi-IN',
-  gu: 'gu-IN',
-  mr: 'mr-IN',
-  ta: 'ta-IN',
-  bn: 'bn-IN',
   en: 'en-IN',
 }
 

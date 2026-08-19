@@ -47,5 +47,20 @@ export function useSpeechSynthesis() {
     setSpeaking(false)
   }, [supported])
 
-  return { speak, stop, speaking, supported }
+  // True when the device actually has a voice for the requested language.
+  // Chrome silently does nothing when the matching voice is missing (e.g. no
+  // Hindi TTS pack installed on Windows) — the UI should say so instead of
+  // pretending the button works.
+  const voiceAvailable = useCallback(
+    (lang = 'hi') => {
+      if (!supported) return false
+      const voiceLang = TTS_VOICE_LANG[lang] || 'hi-IN'
+      return window.speechSynthesis
+        .getVoices()
+        .some((v) => v.lang.replace('_', '-') === voiceLang)
+    },
+    [supported],
+  )
+
+  return { speak, stop, speaking, supported, voiceAvailable }
 }

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import LanguagePicker from '../../components/voice/LanguagePicker.jsx'
 import VoiceRecorder from '../../components/voice/VoiceRecorder.jsx'
 import Spinner from '../../components/ui/Spinner.jsx'
+import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis.js'
 import { structureListing } from '../../services/voice.js'
 
 // ============================================================================
@@ -11,24 +12,45 @@ import { structureListing } from '../../services/voice.js'
 // Host taps mic → speaks in Hindi/Gujarati → "processing…" → a structured
 // listing card appears (ListingReview). One call (audio → Gemini → JSON).
 // Fallback chain: live → cached → fixture lives inside services/voice.js.
+//
+// Follow-up round: if the host never mentioned a critical number (price,
+// duration, capacity), the backend answers with a spoken question in the
+// host's language. The host records a short reply, and the AI merges it into
+// the draft. Max MAX_ROUNDS rounds, then the review form lets them finish.
 // ============================================================================
+
+const MAX_ROUNDS = 2
 
 export default function VoiceListing() {
   const navigate = useNavigate()
   const [lang, setLang] = useState('hi')
-  const [phase, setPhase] = useState('idle') // idle | processing | error
+  const [phase, setPhase] = useState('idle') // idle | processing | followup | error
   const [errorMsg, setErrorMsg] = useState('')
+  const [envelope, setEnvelope] = useState(null) // {listing, missing, question}
+  const [round, setRound] = useState(0)
+  const { speak, stop: stopSpeech, speaking, supported, voiceAvailable } = useSpeechSynthesis()
 
-  const handleComplete = async ({ wavBlob, durationSec }) => {
+  const goToReview = (listing) => {
+    // Stash a copy so the review page survives a refresh (location.state lost)
+    sessionStorage.setItem('voice_listing', JSON.stringify(listing))
+    navigate('/host/voice/review', { state: { listing } })
+  }
+
+  const handleComplete = async ({ wavBlob }) => {
     setPhase('processing')
     try {
-      // One call: audio + language → structured listing JSON.
-      // (Mock-mode returns the fixture; the real Gemini call swaps in behind
-      // the same function signature when the backend ships.)
-      const listing = await structureListing(wavBlob, lang)
-      // Stash a copy so the review page survives a refresh (location.state lost)
-      sessionStorage.setItem('voice_listing', JSON.stringify(listing))
-      navigate('/host/voice/review', { state: { listing } })
+      // First call: fresh extraction. Follow-up calls: merge the reply into
+      // the draft (previous) so already-correct fields are never re-guessed.
+      const result = await structureListing(wavBlob, lang, {
+        previous: envelope?.missing?.length ? envelope.listing : null,
+      })
+      if (result.missing?.length && round < MAX_ROUNDS) {
+        setEnvelope(result)
+        setRound((r) => r + 1)
+        setPhase('followup')
+        return
+      }
+      goToReview(result.listing)
     } catch (e) {
       console.error('Voice structuring failed:', e)
       setErrorMsg('We could not read your recording. Please try again — or use the manual form.')
@@ -45,12 +67,65 @@ export default function VoiceListing() {
 
       <div className="card mt-6">
         <LanguagePicker value={lang} onChange={setLang} />
-        <VoiceRecorder onComplete={handleComplete} onError={(msg) => { setErrorMsg(msg); setPhase('error') }} />
+        {phase !== 'followup' && (
+          <VoiceRecorder key={round} onComplete={handleComplete} onError={(msg) => { setErrorMsg(msg); setPhase('error') }} />
+        )}
 
         {phase === 'processing' && (
           <div className="mt-4 rounded-lg bg-brand-light p-6 text-center">
-            <Spinner label="Reading your words… building your listing" />
+            <Spinner label={envelope ? 'Reading your answer… merging it in' : 'Reading your words… building your listing'} />
             <p className="mt-2 text-xs text-stone-500">This is the moment — voice becomes a card.</p>
+          </div>
+        )}
+
+        {phase === 'followup' && envelope?.question && (
+          <div className="mt-4 rounded-lg border border-brand/30 bg-brand-light/50 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-dark">
+                  One quick question
+                </p>
+                <p className="mt-1 text-lg font-semibold text-stone-800">{envelope.question}</p>
+              </div>
+              {supported && (
+                <div className="shrink-0 text-right">
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    onClick={() => (speaking ? stopSpeech() : speak(envelope.question, lang))}
+                  >
+                    {speaking ? '⏹ Stop' : '🔊 Listen'}
+                  </button>
+                  {!voiceAvailable(lang) && (
+                    <p className="mt-1 max-w-40 text-[11px] leading-tight text-stone-400">
+                      {lang === 'hi' ? 'Hindi' : 'This language'} voice not installed on this device
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
+              <p className="text-center text-sm font-medium text-stone-700">
+                🎤 Now answer out loud — tap the mic, say it, tap stop
+              </p>
+              <p className="mt-1 text-center text-xs text-stone-500">
+                e.g. <em>“teen sau rupaye”</em> or <em>“aath ghante”</em>
+              </p>
+              <VoiceRecorder
+                key={`answer-${round}`}
+                onComplete={handleComplete}
+                onError={(msg) => { setErrorMsg(msg); setPhase('error') }}
+              />
+            </div>
+
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              onClick={() => goToReview(envelope.listing)}
+            >
+              Skip — I'll set it in the form
+            </button>
           </div>
         )}
 
@@ -58,7 +133,7 @@ export default function VoiceListing() {
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <p>{errorMsg}</p>
             <div className="mt-3 flex gap-3">
-              <button className="btn-secondary" onClick={() => { setPhase('idle'); setErrorMsg('') }}>
+              <button className="btn-secondary" onClick={() => { setPhase(envelope?.missing?.length ? 'followup' : 'idle'); setErrorMsg('') }}>
                 Try again
               </button>
               <Link to="/host/manual" className="btn-ghost">Use the manual form instead</Link>
@@ -68,8 +143,7 @@ export default function VoiceListing() {
       </div>
 
       <p className="mt-6 text-center text-xs text-stone-400">
-        Demo pipeline: audio → Gemini → structured JSON (one call). The optional live-transcript sugar is not on the
-        critical path.
+        Demo pipeline: audio → Gemini → structured JSON (one call). If a number is missing, we ask one spoken question.
       </p>
     </div>
   )
