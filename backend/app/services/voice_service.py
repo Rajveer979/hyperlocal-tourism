@@ -20,7 +20,7 @@ from ..fixtures import SAMPLE_LISTING
 
 log = logging.getLogger("voice")
 
-CATEGORIES = ["food", "craft", "heritage", "nature", "other"]
+
 
 STRUCTURING_PROMPT = """You are a listing assistant for a village tourism platform. A host described their experience out loud. Extract a structured listing from it.
 
@@ -30,16 +30,11 @@ Return ONLY JSON (no markdown, no commentary) with exactly these fields:
 - "title": a short, catchy title in the original spoken language
 - "description": 2-3 sentences in the original spoken language
 - "description_en": an English translation of the description
-- "category": one of "food", "craft", "heritage", "nature", "other"
 - "price": price in INR as an integer (null if not mentioned — never invent one)
-- "duration_minutes": duration in minutes as an integer (null if not mentioned — never guess)
-- "capacity": max group size as an integer (null if not mentioned — never guess)
-- "availability": {"days": [weekday names], "slots": ["HH:MM"], "max_per_slot": integer}
-- "languages": ISO-639-1 codes the host speaks (e.g. ["hi", "gu"])
+- "languages": ISO-639-1 codes the host speaks (e.g. ["hi", "en"])
 
-Use the exact values the host states — every price, duration, group size and day
-mentioned MUST appear in the output. Do not invent specific details that were
-not spoken. If a numeric field was not mentioned, return null for it (the
+Use the exact values the host states. Do not invent specific details that were
+not spoken. If price was not mentioned, return null for it (the
 platform will ask a follow-up question).
 
 Numbers may be spoken in Hindi — common words: teen=3, paanch=5, chah=6,
@@ -63,9 +58,8 @@ missing fields. Return the COMPLETE listing JSON with every field — keeping
 the draft's existing values for anything the new audio does not mention or
 change. Use null for any missing field still not mentioned — never guess.
 
-Fields: host_name, village_name, title, description, description_en, category,
-price, duration_minutes, capacity, availability {{"days", "slots",
-"max_per_slot"}}, languages.
+Fields: host_name, village_name, title, description, description_en, price,
+languages.
 
 Spoken language: {language}"""
 
@@ -74,30 +68,19 @@ Spoken language: {language}"""
 QUESTIONS = {
     "price": {
         "hi": "आप प्रति व्यक्ति कितने रुपये लेते हैं?",
-        "gu": "તમે પ્રતિ વ્યક્તિ કેટલા રૂપિયા લો છો?",
         "en": "How much do you charge per person?",
-    },
-    "duration_minutes": {
-        "hi": "यह अनुभव कितने समय का है?",
-        "gu": "આ અનુભવ કેટલા સમયનો છે?",
-        "en": "How long does the experience last?",
-    },
-    "capacity": {
-        "hi": "एक बार में कितने लोग आ सकते हैं?",
-        "gu": "એક વખતે કેટલા લોકો આવી શકે છે?",
-        "en": "How many people can join at once?",
     },
 }
 
-_JOINERS = {"hi": " और ", "gu": " અને ", "en": " and "}
+_JOINERS = {"hi": " और ", "en": " and "}
 
 
 def compute_missing(raw: dict) -> list:
     """Critical numbers the host did not mention — the follow-up asks about these."""
     missing = []
-    for field in ("price", "duration_minutes", "capacity"):
+    for field in ("price",):
         value = raw.get(field)
-        if value is None or str(value).strip() == "" or (field != "price" and value == 0):
+        if value is None or str(value).strip() == "":
             missing.append(field)
     return missing
 
@@ -116,12 +99,7 @@ def build_question(missing: list, language: str) -> str | None:
 # ---------------------------------------------------------------------------
 def normalize_listing(raw, language: str) -> dict:
     raw = raw if isinstance(raw, dict) else {}
-    availability = raw.get("availability") if isinstance(raw.get("availability"), dict) else {}
     langs = raw.get("languages") if isinstance(raw.get("languages"), list) else []
-
-    category = raw.get("category")
-    if category not in CATEGORIES:
-        category = "other"
 
     def _int(value, default):
         try:
@@ -138,15 +116,7 @@ def normalize_listing(raw, language: str) -> dict:
         "title": str(raw.get("title") or "").strip(),
         "description": str(raw.get("description") or "").strip(),
         "description_en": str(raw.get("description_en") or "").strip(),
-        "category": category,
         "price": _int(raw.get("price"), 0),
-        "duration_minutes": _int(raw.get("duration_minutes"), 60),
-        "capacity": _int(raw.get("capacity"), 4),
-        "availability": {
-            "days": _list(availability.get("days")),
-            "slots": _list(availability.get("slots")),
-            "max_per_slot": _int(availability.get("max_per_slot"), 8),
-        },
         "languages": [language, *[l for l in langs if l != language]],
         "original_language": language,
     }
@@ -195,7 +165,7 @@ def gemini_one_call(audio_bytes, language: str, transcript: str | None, previous
 
     client = genai.Client(
         api_key=config.GEMINI_API_KEY,
-        http_options={"timeout": 45_000},  # ms — fail fast so fallback can run
+        http_options={"timeout": 25_000},  # ms — fail fast so fallback can run
     )
 
     # Only the spoken words go in `contents`; the extraction rules ride as a
@@ -239,7 +209,7 @@ def gemini_one_call(audio_bytes, language: str, transcript: str | None, previous
 def groq_two_call(audio_bytes, language: str, transcript: str | None, previous: dict | None = None) -> dict:
     from groq import Groq
 
-    client = Groq(api_key=config.GROQ_API_KEY)
+    client = Groq(api_key=config.GROQ_API_KEY, timeout=15.0)
 
     # Step 1 — speech → text (skipped when a transcript was provided)
     if transcript:

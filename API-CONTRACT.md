@@ -47,12 +47,12 @@
 }
 ```
 
-- `missing`: critical numbers the host did not mention (`price`, `duration_minutes`, `capacity`)
+- `missing`: critical fields the host did not mention (`price`)
 - `question`: one spoken follow-up in the host's language (`null` when nothing is missing)
 - Frontend: when `missing` is non-empty, play `question` aloud and record a short reply; send it back
   with `previous` = the draft `listing` (form field, JSON string). The engine merges the reply into
   the draft and returns the same envelope. Cap at 2 rounds, then let the host finish in the form.
-- Numeric fields the host did not mention come back as `null` from the engines — never guessed.
+- Fields the host did not mention come back as `null` from the engines — never guessed.
 
 ```json
 {
@@ -60,12 +60,9 @@
   "village_name": "",
   "title": "",
   "description": "",
-  "category": "food|craft|heritage|nature|other",
+  "description_en": "",
   "price": 0,
-  "duration_minutes": 0,
-  "capacity": 0,
-  "availability": {"days": [], "slots": [], "max_per_slot": 8},
-  "languages": ["gu", "hi"]
+  "languages": ["hi", "en"]
 }
 ```
 

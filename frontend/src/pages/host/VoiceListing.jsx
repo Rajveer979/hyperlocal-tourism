@@ -28,7 +28,7 @@ export default function VoiceListing() {
   const [errorMsg, setErrorMsg] = useState('')
   const [envelope, setEnvelope] = useState(null) // {listing, missing, question}
   const [round, setRound] = useState(0)
-  const { speak, stop: stopSpeech, speaking, supported } = useSpeechSynthesis()
+  const { speak, stop: stopSpeech, speaking, supported, voiceAvailable } = useSpeechSynthesis()
 
   const goToReview = (listing) => {
     // Stash a copy so the review page survives a refresh (location.state lost)
@@ -67,7 +67,9 @@ export default function VoiceListing() {
 
       <div className="card mt-6">
         <LanguagePicker value={lang} onChange={setLang} />
-        <VoiceRecorder key={round} onComplete={handleComplete} onError={(msg) => { setErrorMsg(msg); setPhase('error') }} />
+        {phase !== 'followup' && (
+          <VoiceRecorder key={round} onComplete={handleComplete} onError={(msg) => { setErrorMsg(msg); setPhase('error') }} />
+        )}
 
         {phase === 'processing' && (
           <div className="mt-4 rounded-lg bg-brand-light p-6 text-center">
@@ -86,27 +88,44 @@ export default function VoiceListing() {
                 <p className="mt-1 text-lg font-semibold text-stone-800">{envelope.question}</p>
               </div>
               {supported && (
-                <button
-                  type="button"
-                  className="btn-secondary shrink-0 text-sm"
-                  onClick={() => (speaking ? stopSpeech() : speak(envelope.question, lang))}
-                >
-                  {speaking ? '⏹ Stop' : '🔊 Listen'}
-                </button>
+                <div className="shrink-0 text-right">
+                  <button
+                    type="button"
+                    className="btn-secondary text-sm"
+                    onClick={() => (speaking ? stopSpeech() : speak(envelope.question, lang))}
+                  >
+                    {speaking ? '⏹ Stop' : '🔊 Listen'}
+                  </button>
+                  {!voiceAvailable(lang) && (
+                    <p className="mt-1 max-w-40 text-[11px] leading-tight text-stone-400">
+                      {lang === 'hi' ? 'Hindi' : 'This language'} voice not installed on this device
+                    </p>
+                  )}
+                </div>
               )}
             </div>
-            <p className="mt-3 text-sm text-stone-600">
-              Just answer out loud — tap the mic and say it, e.g. <em>“teen sau rupaye”</em>. Then we'll finish your card.
-            </p>
-            <div className="mt-2">
-              <button
-                type="button"
-                className="btn-ghost text-sm"
-                onClick={() => goToReview(envelope.listing)}
-              >
-                Skip — I'll set it in the form
-              </button>
+
+            <div className="mt-4 rounded-lg border border-stone-200 bg-white p-4">
+              <p className="text-center text-sm font-medium text-stone-700">
+                🎤 Now answer out loud — tap the mic, say it, tap stop
+              </p>
+              <p className="mt-1 text-center text-xs text-stone-500">
+                e.g. <em>“teen sau rupaye”</em> or <em>“aath ghante”</em>
+              </p>
+              <VoiceRecorder
+                key={`answer-${round}`}
+                onComplete={handleComplete}
+                onError={(msg) => { setErrorMsg(msg); setPhase('error') }}
+              />
             </div>
+
+            <button
+              type="button"
+              className="btn-ghost text-sm"
+              onClick={() => goToReview(envelope.listing)}
+            >
+              Skip — I'll set it in the form
+            </button>
           </div>
         )}
 

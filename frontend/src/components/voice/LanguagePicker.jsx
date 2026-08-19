@@ -2,7 +2,7 @@ import { LANGUAGES } from '../../utils/constants.js'
 
 // The language the HOST speaks in — the recording language, not the UI language.
 // Demo default: Hindi (hi), per the team decision.
-const RECORDING_LANGS = ['hi', 'gu', 'mr', 'ta', 'bn', 'en']
+const RECORDING_LANGS = ['hi', 'en']
 
 export default function LanguagePicker({ value, onChange }) {
   return (
