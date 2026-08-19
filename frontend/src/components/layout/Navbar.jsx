@@ -31,13 +31,15 @@ export default function Navbar() {
           <NavLink to="/explore" className={linkCls}>
             {t('nav_explore')}
           </NavLink>
-          <NavLink to="/host" className={linkCls}>
-            {t('nav_host')}
-          </NavLink>
           {user?.role === 'host' && (
-            <NavLink to="/host/dashboard" className={linkCls}>
-              {t('nav_dashboard')}
-            </NavLink>
+            <>
+              <NavLink to="/host" className={linkCls}>
+                {t('nav_host')}
+              </NavLink>
+              <NavLink to="/host/dashboard" className={linkCls}>
+                {t('nav_dashboard')}
+              </NavLink>
+            </>
           )}
           {user?.role === 'admin' && (
             <NavLink to="/admin" className={linkCls}>

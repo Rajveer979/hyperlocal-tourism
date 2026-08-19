@@ -2,15 +2,9 @@ import { createContext, useContext, useMemo, useState } from 'react'
 import en from '../i18n/en.json'
 import hi from '../i18n/hi.json'
 import gu from '../i18n/gu.json'
+import { login as apiLogin, signup as apiSignup } from '../services/auth.js'
 
 const translations = { en, hi, gu }
-
-// Demo users (hardcoded per the plan — F22). Real auth comes with the backend.
-export const DEMO_USERS = {
-  host: { name: 'Kamlaben', role: 'host', phone: '+91 98765 43210' },
-  traveller: { name: 'Aarav', role: 'traveller', phone: '+91 91234 56780' },
-  admin: { name: 'Admin', role: 'admin', phone: '+91 90000 00000' },
-}
 
 const AppContext = createContext(null)
 
@@ -24,16 +18,33 @@ export function AppProvider({ children }) {
   })
   const [lang, setLangState] = useState(() => localStorage.getItem('app_lang') || 'en')
 
-  const login = (role) => {
-    const u = DEMO_USERS[role] || null
-    setUser(u)
-    localStorage.setItem('app_user', JSON.stringify(u))
-    return u
+  // Persist token + user from any auth payload ({token, role, user}).
+  const storeSession = (payload) => {
+    localStorage.setItem('app_token', payload.token)
+    localStorage.setItem('app_user', JSON.stringify(payload.user))
+    setUser(payload.user)
+    return payload.user
+  }
+
+  // expectedRole (optional): when set, the logged-in account MUST be that
+  // role — otherwise the login is rejected (used by the demo role chips).
+  const login = async (username, password, expectedRole = null) => {
+    const payload = await apiLogin(username, password)
+    if (expectedRole && payload.user.role !== expectedRole) {
+      throw new Error(`Only ${expectedRole} accounts can log in here — tap the chip again to remove the filter.`)
+    }
+    return storeSession(payload)
+  }
+
+  const signup = async (data) => {
+    const payload = await apiSignup(data)
+    return storeSession(payload)
   }
 
   const logout = () => {
-    setUser(null)
+    localStorage.removeItem('app_token')
     localStorage.removeItem('app_user')
+    setUser(null)
   }
 
   const setLang = (code) => {
@@ -44,7 +55,7 @@ export function AppProvider({ children }) {
   const t = (key) => translations[lang]?.[key] ?? translations.en[key] ?? key
 
   const value = useMemo(
-    () => ({ user, login, logout, lang, setLang, t }),
+    () => ({ user, login, signup, logout, lang, setLang, t }),
     [user, lang, t],
   )
 

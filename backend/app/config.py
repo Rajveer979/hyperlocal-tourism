@@ -30,3 +30,13 @@ GROQ_LLM_MODEL = _get("GROQ_LLM_MODEL", "openai/gpt-oss-120b")
 
 # --- Server -------------------------------------------------------------------
 CORS_ORIGINS = [o.strip() for o in _get("CORS_ORIGINS", "http://localhost:5173").split(",") if o.strip()]
+
+# --- Auth (F22) -----------------------------------------------------------------
+# Dev-only default — ALWAYS set a real secret in backend/.env for anything
+# beyond local testing.
+JWT_SECRET = _get("JWT_SECRET", "dev-secret-change-me")
+RESET_TOKEN_TTL_MINUTES = 30
+
+# --- Email (forgot password) ----------------------------------------------------
+RESEND_API_KEY = _get("RESEND_API_KEY")
+RESEND_FROM_EMAIL = _get("RESEND_FROM_EMAIL", "Hyperlocal Tourism <onboarding@resend.dev>")

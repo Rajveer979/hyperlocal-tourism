@@ -1,4 +1,6 @@
-import { useSearchParams, Link } from 'react-router-dom'
+import { useSearchParams, Link, useNavigate } from 'react-router-dom'
+import { useApp } from '../context/AppContext.jsx'
+import { useEffect } from 'react'
 import { useApi } from '../hooks/useApi.js'
 import { getRouteResult } from '../services/experiences.js'
 import MapView from '../components/map/MapView.jsx'
@@ -12,7 +14,15 @@ import { DEMO_ROUTE } from '../utils/constants.js'
 // F8 — the hero demo: "Ahmedabad → Udaipur" draws a route and every
 // experience within the radius appears, ordered as stops.
 export default function RouteResults() {
+  const { user } = useApp()
+  const navigate = useNavigate()
   const [params] = useSearchParams()
+
+  useEffect(() => {
+    if (!user) navigate('/login', { replace: true })
+  }, [user, navigate])
+
+  if (!user) return null
   const from = params.get('from') || DEMO_ROUTE.from.name
   const to = params.get('to') || DEMO_ROUTE.to.name
   const radius = params.get('radius_km') || DEMO_ROUTE.radius_km

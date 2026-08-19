@@ -11,6 +11,22 @@
 export const MOCK_MODE = import.meta.env.VITE_MOCK_MODE !== 'false'
 export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
+// Backend features implemented TODAY (per API-CONTRACT.md). Everything else
+// stays on mock data so the demo keeps working while the team ships the rest.
+// Flip a feature to true only when its endpoints exist in the backend.
+export const LIVE_FEATURES = {
+  auth: true, // signup / login / forgot / reset / me
+  reviews: true, // GET + POST reviews (completed-booking gate)
+  admin: true, // GET /admin/users
+  // Not built yet (backend teammate): experiences, bookings, route,
+  // itinerary, offline, daypass, pois, voice
+}
+
+// True when the app is live AND the backend actually serves this feature.
+export function isLive(feature) {
+  return !MOCK_MODE && !!LIVE_FEATURES[feature]
+}
+
 export function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
