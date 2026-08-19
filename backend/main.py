@@ -4,11 +4,8 @@ Run from backend/:  uvicorn main:app --reload
 Docs: http://localhost:8000/docs
 """
 
-<<<<<<< HEAD
-from contextlib import asynccontextmanager
-=======
 import json
->>>>>>> origin/main
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
