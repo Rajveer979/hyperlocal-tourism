@@ -1,7 +1,8 @@
-import { MOCK_MODE, request, delay } from './api.js'
+import { isLive, request, delay } from './api.js'
 import {
   experiences,
   hosts,
+  reviews,
   getExperience,
   getReviewsFor,
   routeResult,
@@ -11,7 +12,7 @@ import {
 } from '../data/mockData.js'
 
 export async function getExperiences(filters = {}) {
-  if (MOCK_MODE) {
+  if (!isLive('experiences')) {
     await delay(200)
     let items = [...experiences]
     if (filters.category && filters.category !== 'all') {
@@ -43,7 +44,7 @@ export async function getExperiences(filters = {}) {
 }
 
 export async function getExperienceById(id) {
-  if (MOCK_MODE) {
+  if (!isLive('experiences')) {
     await delay(150)
     return withHost(getExperience(id))
   }
@@ -52,7 +53,7 @@ export async function getExperienceById(id) {
 
 // F8 — route-based discovery (backend computes with OSRM + shapely)
 export async function getRouteResult(from, to, radiusKm = 10) {
-  if (MOCK_MODE) {
+  if (!isLive('route')) {
     await delay(400)
     // MOCK: returns the pre-seeded corridor result. The real call hits
     // GET /experiences/route?from=&to=&radius_km= once the backend ships.
@@ -64,15 +65,38 @@ export async function getRouteResult(from, to, radiusKm = 10) {
 
 // F18 — reviews for an experience (gated to completed bookings in production)
 export async function getReviews(experienceId) {
-  if (MOCK_MODE) {
+  if (!isLive('reviews')) {
     await delay(150)
     return getReviewsFor(experienceId)
   }
   return request(`/experiences/${experienceId}/reviews`)
 }
 
+// F18 — post a review. Real API enforces: only travellers with a *completed*
+// booking may review. Mock mode appends to the shared mock list so a reload
+// (or re-fetch of getReviews) shows the new review immediately.
+export async function addReview(experienceId, { rating, comment }) {
+  if (!isLive('reviews')) {
+    await delay(400)
+    const review = {
+      id: Date.now(),
+      experience_id: Number(experienceId),
+      traveller_name: 'Aarav', // demo traveller (F22)
+      rating,
+      comment,
+      created_at: new Date().toISOString(),
+    }
+    reviews.push(review)
+    return review
+  }
+  return request('/reviews', {
+    method: 'POST',
+    body: JSON.stringify({ experience_id: Number(experienceId), rating, comment }),
+  })
+}
+
 export async function getDayPasses() {
-  if (MOCK_MODE) {
+  if (!isLive('daypass')) {
     await delay(150)
     return dayPasses.map((d) => ({ ...d, includes: d.includes.map(withHost) }))
   }
@@ -80,7 +104,7 @@ export async function getDayPasses() {
 }
 
 export async function getPois() {
-  if (MOCK_MODE) {
+  if (!isLive('pois')) {
     await delay(100)
     return pois
   }

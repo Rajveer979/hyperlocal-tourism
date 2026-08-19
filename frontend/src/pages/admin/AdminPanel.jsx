@@ -1,13 +1,18 @@
 import { useState } from 'react'
 import { hosts, experiences } from '../../data/mockData.js'
+import { getUsers } from '../../services/admin.js'
+import { useApi } from '../../hooks/useApi.js'
 import VerifiedBadge from '../../components/experience/VerifiedBadge.jsx'
 import Badge from '../../components/ui/Badge.jsx'
+import Spinner from '../../components/ui/Spinner.jsx'
+import { formatDate } from '../../utils/format.js'
 
 // F23 — internal moderation page: verify a host, issue a Panchayat badge,
-// hide a listing. All mock state for the demo.
+// hide a listing. Plus the real registered-users list (who logged in).
 export default function AdminPanel() {
   const [verified, setVerified] = useState({})
   const [hidden, setHidden] = useState({})
+  const { data: users, loading: usersLoading } = useApi(() => getUsers(), [])
 
   const toggleVerify = (id) => setVerified((v) => ({ ...v, [id]: !v[id] }))
   const toggleHidden = (id) => setHidden((h) => ({ ...h, [id]: !h[id] }))
@@ -16,6 +21,26 @@ export default function AdminPanel() {
     <div className="mx-auto max-w-5xl px-4 py-10">
       <h1 className="text-2xl font-bold text-stone-800">Admin moderation</h1>
       <p className="mt-1 text-sm text-stone-500">Verify hosts and issue Panchayat badges — institutional trust on day one.</p>
+
+      <h2 className="mt-8 mb-3 text-lg font-semibold text-stone-800">Users & logins</h2>
+      {usersLoading ? (
+        <Spinner label="Loading users…" />
+      ) : (
+        <div className="space-y-2">
+          {(users || []).map((u) => (
+            <div key={u.id} className="card flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-stone-800">{u.name}</p>
+                <p className="truncate text-sm text-stone-500">{u.email}</p>
+              </div>
+              <div className="flex items-center gap-3 text-sm text-stone-500">
+                <Badge color={u.role === 'host' ? 'green' : u.role === 'admin' ? 'blue' : 'stone'}>{u.role}</Badge>
+                <span>{u.last_login_at ? `Last login: ${formatDate(u.last_login_at)}` : 'Never logged in'}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <h2 className="mt-8 mb-3 text-lg font-semibold text-stone-800">Hosts</h2>
       <div className="space-y-3">
