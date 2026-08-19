@@ -1,9 +1,9 @@
-import { MOCK_MODE, request, delay } from './api.js'
+import { isLive, request, delay } from './api.js'
 import { bookings, hostEarnings, demoItinerary } from '../data/mockData.js'
 
 // F11 — create a booking
 export async function createBooking({ experience_id, slot_time, group_size, traveller_name }) {
-  if (MOCK_MODE) {
+  if (!isLive('bookings')) {
     await delay(500) // simulates the UPI "confirm" round-trip
     const booking = {
       id: bookings.length + 1,
@@ -24,7 +24,7 @@ export async function createBooking({ experience_id, slot_time, group_size, trav
 
 // F4 — host dashboard data
 export async function getHostBookings(hostId) {
-  if (MOCK_MODE) {
+  if (!isLive('bookings')) {
     await delay(200)
     // Demo: all seeded bookings belong to the demo host (Kamlaben, host id 1)
     return bookings
@@ -35,7 +35,7 @@ export async function getHostBookings(hostId) {
 }
 
 export async function getHostEarnings(hostId) {
-  if (MOCK_MODE) {
+  if (!isLive('bookings')) {
     await delay(150)
     return hostEarnings
   }
@@ -44,7 +44,7 @@ export async function getHostEarnings(hostId) {
 
 // F12 — itinerary generation for a booking
 export async function getItinerary(bookingId) {
-  if (MOCK_MODE) {
+  if (!isLive('itinerary')) {
     await delay(600) // LLM "thinking" time for the demo
     return demoItinerary
   }

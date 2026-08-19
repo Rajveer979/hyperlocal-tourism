@@ -1,6 +1,7 @@
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useApp } from '../context/AppContext.jsx'
 import { useApi } from '../hooks/useApi.js'
-import { getExperienceById, getReviews } from '../services/experiences.js'
+import { getExperienceById, getReviews, addReview } from '../services/experiences.js'
 import { CATEGORY_MAP } from '../utils/constants.js'
 import { formatINR, formatDuration } from '../utils/format.js'
 import HostStory from '../components/experience/HostStory.jsx'
@@ -9,6 +10,7 @@ import IncludedList from '../components/experience/IncludedList.jsx'
 import ListenButton from '../components/experience/ListenButton.jsx'
 import ShareButton from '../components/experience/ShareButton.jsx'
 import ReviewList from '../components/experience/ReviewList.jsx'
+import ReviewForm from '../components/experience/ReviewForm.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 import Button from '../components/ui/Button.jsx'
 import MapView from '../components/map/MapView.jsx'
@@ -17,8 +19,10 @@ import ExperiencePin from '../components/map/ExperiencePin.jsx'
 // F10 — the page the demo lingers on: story, badge, Listen, book.
 export default function ExperienceDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const { user } = useApp()
   const { data: exp, loading } = useApi(() => getExperienceById(id), [id])
-  const { data: reviews } = useApi(() => getReviews(id), [id])
+  const { data: reviews, reload: reloadReviews } = useApi(() => getReviews(id), [id])
 
   if (loading) return <div className="mx-auto max-w-4xl px-4 py-16"><Spinner label="Loading listing…" /></div>
   if (!exp) return <div className="mx-auto max-w-4xl px-4 py-16"><p className="card text-red-600">Experience not found.</p></div>
@@ -56,7 +60,7 @@ export default function ExperienceDetail() {
       )}
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link to={`/book/${exp.id}`}><Button>Book a slot →</Button></Link>
+        <Button onClick={() => user ? navigate(`/book/${exp.id}`) : navigate('/login')}>Book a slot →</Button>
         <ListenButton text={listenText} language={exp.original_language || 'hi'} />
         <ShareButton text={`${exp.title} — ${exp.village_name}, ${formatINR(exp.price)}. Book on Hyperlocal Tourism!`} />
       </div>
@@ -86,6 +90,14 @@ export default function ExperienceDetail() {
       <div className="mt-8">
         <h2 className="mb-3 font-semibold text-stone-800">Reviews</h2>
         <ReviewList reviews={reviews} />
+        <div className="mt-4">
+          <ReviewForm
+            onSubmit={async ({ rating, comment }) => {
+              await addReview(id, { rating, comment })
+              await reloadReviews()
+            }}
+          />
+        </div>
       </div>
     </div>
   )

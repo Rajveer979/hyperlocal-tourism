@@ -1,4 +1,4 @@
-import { MOCK_MODE, request } from './api.js'
+import { isLive } from './api.js'
 
 // ============================================================================
 // F15 — OFFLINE TRAVELLER PACK
@@ -37,12 +37,10 @@ export function buildOfflinePack({ booking, experience, itinerary, host }) {
 }
 
 export function downloadPack(bookingId) {
-  if (MOCK_MODE) {
-    // Real path: GET /offline-pack/{booking_id} → PackJSON + map image URL
-    // Mock path: caller builds the pack string and we download it here.
-    return
-  }
-  return request(`/offline-pack/${bookingId}`)
+  // Real path (future): GET /offline-pack/{booking_id} → PackJSON + map image
+  // Mock path (today): caller builds the pack string locally.
+  if (!isLive('offline')) return
+  return undefined
 }
 
 export function savePackLocally(packText) {

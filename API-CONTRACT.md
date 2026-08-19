@@ -22,6 +22,12 @@
 | Method + Path | Auth | Request | Response | Owner | Consumers | Done |
 |---|---|---|---|---|---|---|
 | POST `/auth/login` | — | {username, password} | {token, role, user} | BACKEND | FRONTEND | [ ] |
+| POST `/auth/signup` | — | {name, email, phone, password, role} | {token, role, user} | BACKEND | FRONTEND | [ ] |
+| POST `/auth/forgot-password` | — | {email} | {delivered, message (dev: dev_token)} | BACKEND | FRONTEND | [ ] |
+| POST `/auth/reset-password` | — | {token, new_password} | {ok} | BACKEND | FRONTEND | [ ] |
+| GET `/auth/me` | Bearer | — | User | BACKEND | FRONTEND | [ ] |
+
+**Auth notes:** role is `host` \| `traveller` \| `admin`; signup allows host + traveller only. `username` = email. Reset tokens expire in 30 min, single-use. Without `RESEND_API_KEY` the forgot-password response includes `dev_token` so the flow works offline.
 | GET `/experiences` | — | query filters | Experience[] | BACKEND | FRONTEND, MAPS | [ ] |
 | GET `/experiences/{id}` | — | — | Experience (detail) | BACKEND | FRONTEND | [ ] |
 | POST `/experiences` | host | ExperienceIn | Experience | BACKEND | FRONTEND | [ ] |
@@ -30,8 +36,14 @@
 | POST `/bookings` | traveller | {experience_id, slot_time, group_size} | Booking | BACKEND | FRONTEND | [ ] |
 | GET `/bookings/host/{host_id}` | host | — | Booking[] + totals | BACKEND | FRONTEND | [ ] |
 | POST `/itinerary/generate` | traveller | {booking_id} | PlanStep[] | BACKEND + AI | FRONTEND | [ ] |
+| GET `/experiences/{id}/reviews` | — | — | Review[] | BACKEND | FRONTEND | [ ] |
 | POST `/reviews` | traveller | {experience_id, rating, comment} | Review | BACKEND | FRONTEND | [ ] |
+
+> **F18 stopgap:** `POST /reviews` enforces the completed-booking gate. Until
+> real JWT auth (F22) ships, the backend accepts an optional `traveller_id`
+> (defaults to the demo traveller, id 7) — remove it once auth lands.
 | GET `/offline-pack/{booking_id}` | traveller | — | PackJSON + map image URL | BACKEND | FRONTEND | [ ] |
+| GET `/admin/users` | admin | — | User[] (incl. last_login_at) | BACKEND | FRONTEND | [ ] |
 | POST `/admin/verify-host` | admin | {user_id, panchayat} | User | BACKEND | FRONTEND | [ ] |
 | POST `/admin/hide-listing` | admin | {experience_id} | Experience | BACKEND | FRONTEND | [ ] |
 

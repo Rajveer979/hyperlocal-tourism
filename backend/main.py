@@ -1,18 +1,32 @@
-"""FastAPI entry point — voice feature (F1) only.
+"""FastAPI entry point — voice feature (F1) + reviews (F18).
 
 Run from backend/:  uvicorn main:app --reload
 Docs: http://localhost:8000/docs
 """
 
 import json
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config
+from app.database import Base, engine
+from app.routes.admin import router as admin_router
+from app.routes.auth import router as auth_router
+from app.routes.reviews import router as reviews_router
 from app.services.voice_service import structure_listing
 
-app = FastAPI(title="Hyperlocal Tourism — Voice API", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Dev only — create tables on boot. Real migrations come with the backend
+    # teammate's full schema work.
+    Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="Hyperlocal Tourism", version="0.2.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -21,6 +35,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(admin_router)
+app.include_router(auth_router)
+app.include_router(reviews_router)
 
 
 @app.get("/health")

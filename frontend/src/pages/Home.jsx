@@ -9,7 +9,7 @@ import { DEMO_ROUTE } from '../utils/constants.js'
 
 // Landing + the F8 route search ("From → To").
 export default function Home() {
-  const { t } = useApp()
+  const { t, user } = useApp()
   const navigate = useNavigate()
   const [from, setFrom] = useState(DEMO_ROUTE.from.name)
   const [to, setTo] = useState(DEMO_ROUTE.to.name)
@@ -19,7 +19,19 @@ export default function Home() {
 
   const searchRoute = (e) => {
     e.preventDefault()
+    if (!user) {
+      navigate('/login')
+      return
+    }
     navigate(`/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&radius_km=${radius}`)
+  }
+
+  const handleHostVoice = () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    navigate('/host/voice')
   }
 
   return (
@@ -34,6 +46,7 @@ export default function Home() {
 
           {/* Route search (F8) */}
           <form onSubmit={searchRoute} className="mx-auto mt-10 flex max-w-3xl flex-wrap items-end justify-center gap-3 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-stone-200">
+            {!user && <p className="w-full text-center text-sm text-amber-600">Log in to plan your journey</p>}
             <div>
               <label className="label">From</label>
               <input className="input w-44" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="City" />
@@ -59,18 +72,20 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Host CTA (F1) */}
-      <section className="mx-auto max-w-6xl px-4 py-12">
-        <div className="card flex flex-wrap items-center justify-between gap-4 bg-brand-light/50">
-          <div>
-            <h2 className="text-xl font-bold text-stone-800">Are you a village host?</h2>
-            <p className="text-sm text-stone-600">No forms, no English, no typing. Tap the mic and speak — we build your listing.</p>
+      {/* Host CTA (F1) — only shown to hosts or non-logged-in users */}
+      {(!user || user.role === 'host') && (
+        <section className="mx-auto max-w-6xl px-4 py-12">
+          <div className="card flex flex-wrap items-center justify-between gap-4 bg-brand-light/50">
+            <div>
+              <h2 className="text-xl font-bold text-stone-800">Are you a village host?</h2>
+              <p className="text-sm text-stone-600">No forms, no English, no typing. Tap the mic and speak — we build your listing.</p>
+            </div>
+            <button onClick={handleHostVoice} className="btn-primary">
+              🎙️ {t('cta_voice')}
+            </button>
           </div>
-          <Link to="/host/voice" className="btn-primary">
-            🎙️ {t('cta_voice')}
-          </Link>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Featured */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
