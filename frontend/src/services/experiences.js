@@ -1,4 +1,4 @@
-import { isLive, request, delay } from './api.js'
+import { isLive, request, delay, MOCK_MODE } from './api.js'
 import {
   experiences,
   hosts,
@@ -11,10 +11,82 @@ import {
   pois,
 } from '../data/mockData.js'
 
+// ── Create ──────────────────────────────────────────────────────────────
+// Host publishes a listing — saves to DB (live) or localStorage (mock).
+const LS_KEY = 'padaav_listings' // persisted user-created listings
+
+function getLocalListings() {
+  try {
+    return JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+  } catch {
+    return []
+  }
+}
+
+function saveLocalListing(listing) {
+  const all = getLocalListings()
+  all.push(listing)
+  localStorage.setItem(LS_KEY, JSON.stringify(all))
+}
+
+export async function createExperience(data) {
+  if (!isLive('experiences')) {
+    await delay(300)
+    // Convert File objects to data URLs for persistence
+    const photos = (data.photos || []).map((p) => p)
+    const local = {
+      id: Date.now(),
+      host_id: 0,
+      ...data,
+      photos,
+      is_active: true,
+      created_at: new Date().toISOString(),
+    }
+    saveLocalListing(local)
+    return local
+  }
+  return request('/experiences', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+export async function uploadPhoto(experienceId, file) {
+  if (!isLive('experiences')) {
+    await delay(200)
+    // In mock mode, convert file to data URL and attach to the listing
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.readAsDataURL(file)
+    })
+    // Update the listing in localStorage with the photo
+    const all = getLocalListings()
+    const listing = all.find((l) => l.id === Number(experienceId))
+    if (listing) {
+      listing.photos = [...(listing.photos || []), dataUrl]
+      localStorage.setItem(LS_KEY, JSON.stringify(all))
+    }
+    return listing || { photos: [dataUrl] }
+  }
+  const form = new FormData()
+  form.append('photo', file)
+  const token = localStorage.getItem('app_token')
+  const headers = token ? { Authorization: `Bearer ${token}` } : {}
+  const res = await fetch(
+    `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/experiences/${experienceId}/photos`,
+    { method: 'POST', headers, body: form }
+  )
+  if (!res.ok) throw new Error('Photo upload failed')
+  return res.json()
+}
+
+// ── Read ───────────────────────────────────────────────────────────────────
 export async function getExperiences(filters = {}) {
   if (!isLive('experiences')) {
     await delay(200)
-    let items = [...experiences]
+    // Merge seeded + locally-saved listings
+    let items = [...experiences, ...getLocalListings()]
     if (filters.category && filters.category !== 'all') {
       items = items.filter((e) => e.category === filters.category)
     }
@@ -46,7 +118,12 @@ export async function getExperiences(filters = {}) {
 export async function getExperienceById(id) {
   if (!isLive('experiences')) {
     await delay(150)
-    return withHost(getExperience(id))
+    const numId = Number(id)
+    // Check seeded data first, then locally-saved listings from voice/manual publish
+    const fromSeed = getExperience(numId)
+    if (fromSeed) return withHost(fromSeed)
+    const local = getLocalListings().find((l) => l.id === numId)
+    return local || null
   }
   return request(`/experiences/${id}`)
 }
