@@ -11,6 +11,8 @@ Run from backend/:
 Re-runnable: wipes the `bookings` + `reviews` tables and re-inserts.
 """
 
+from sqlalchemy import text
+
 from app.database import Base, SessionLocal, engine
 from app.models import Booking, Review
 
@@ -44,6 +46,12 @@ def run() -> None:
         db.add_all([Booking(**b) for b in BOOKINGS])
         db.add_all([Review(**r) for r in REVIEWS])
         db.commit()
+
+        # Reset PostgreSQL sequences to match seeded IDs
+        if str(engine.url).startswith("postgresql"):
+            db.execute(text("SELECT setval('bookings_id_seq', (SELECT COALESCE(MAX(id), 1) FROM bookings))"))
+            db.execute(text("SELECT setval('reviews_id_seq', (SELECT COALESCE(MAX(id), 1) FROM reviews))"))
+            db.commit()
 
     print(f"Seeded {len(BOOKINGS)} bookings and {len(REVIEWS)} reviews.")
 

@@ -19,9 +19,15 @@ load_dotenv()  # reads backend/.env when running from backend/
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hyperlocal.db")
 
+# SQLite needs check_same_thread=False; PostgreSQL with Supabase needs SSL
 _connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+_engine_kwargs = {}
+if DATABASE_URL.startswith("postgresql") and "supabase.co" in DATABASE_URL:
+    _engine_kwargs["connect_args"] = {"sslmode": "require"}
+else:
+    _engine_kwargs["connect_args"] = _connect_args
 
-engine = create_engine(DATABASE_URL, connect_args=_connect_args)
+engine = create_engine(DATABASE_URL, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
