@@ -28,9 +28,10 @@
 | GET `/auth/me` | Bearer | — | User | BACKEND | FRONTEND | [ ] |
 
 **Auth notes:** role is `host` \| `traveller` \| `admin`; signup allows host + traveller only. `username` = email. Reset tokens expire in 30 min, single-use. Without `RESEND_API_KEY` the forgot-password response includes `dev_token` so the flow works offline.
-| GET `/experiences` | — | query filters | Experience[] | BACKEND | FRONTEND, MAPS | [ ] |
-| GET `/experiences/{id}` | — | — | Experience (detail) | BACKEND | FRONTEND | [ ] |
-| POST `/experiences` | host | ExperienceIn | Experience | BACKEND | FRONTEND | [ ] |
+| GET `/experiences` | — | query filters (q, max_price, women_hosted, language) | Experience[] | BACKEND | FRONTEND, MAPS | [✓] |
+| GET `/experiences/{id}` | — | — | Experience (detail) | BACKEND | FRONTEND | [✓] |
+| POST `/experiences` | Bearer | ExperienceIn | Experience | BACKEND | FRONTEND | [✓] |
+| POST `/experiences/{id}/photos` | Bearer | multipart (photo) | Experience | BACKEND | FRONTEND | [✓] |
 | GET `/experiences/route` | — | from, to, radius_km | RouteResult[] | BACKEND + MAPS | FRONTEND, MAPS | [ ] |
 | POST `/voice/structure` | host | audio file (or transcript) | ListingJSON | BACKEND + AI | FRONTEND | [ ] |
 | POST `/bookings` | traveller | {experience_id, slot_time, group_size} | Booking | BACKEND | FRONTEND | [ ] |
@@ -78,13 +79,12 @@
 }
 ```
 
-## Experience object shape (BACKEND to define on day 0)
+## Experience object shape (defined day 0, simplified for MVP)
 
 ```
-id, host_id, title, description, description_en, category, price, duration_minutes, capacity,
-lat, lng, village_name, languages_spoken[], included{}, photos[], original_language,
-audio_url, is_active, availability{},
-host{ name, story, photo_url, verified_by, is_women_hosted }
+id, host_id, host_name, title, description, description_en, price,
+lat, lng, village_name, languages[], women_hosted,
+photos[], is_active, created_at
 ```
 
 ## Route result item shape (MAPS to define on day 0)

@@ -5,15 +5,18 @@ Docs: http://localhost:8000/docs
 """
 
 import json
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.database import Base, engine
 from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
+from app.routes.experiences import router as experiences_router
 from app.routes.reviews import router as reviews_router
 from app.services.voice_service import structure_listing
 
@@ -26,7 +29,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
+
 app = FastAPI(title="Hyperlocal Tourism", version="0.2.0", lifespan=lifespan)
+
+# Serve uploaded photos
+_uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+os.makedirs(_uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +47,7 @@ app.add_middleware(
 
 app.include_router(admin_router)
 app.include_router(auth_router)
+app.include_router(experiences_router)
 app.include_router(reviews_router)
 
 
