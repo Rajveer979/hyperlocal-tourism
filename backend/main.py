@@ -9,7 +9,6 @@ import json
 import math
 import os
 from contextlib import asynccontextmanager
-
 import httpx
 from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware

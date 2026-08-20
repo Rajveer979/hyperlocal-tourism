@@ -39,7 +39,7 @@ class SignupIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    username: str  # email (or phone)
+    email: str
     password: str
 
 
@@ -56,10 +56,8 @@ def _auth_response(user: User) -> dict:
     return {"token": create_token(user.id, user.role), "role": user.role, "user": user.to_public()}
 
 
-def _find_user_by_username(db: Session, username: str) -> User | None:
-    # username is the email — phone login can be added once the backend
-    # teammate's schema settles; contract says username.
-    return db.execute(select(User).where(User.email == username.lower().strip())).scalars().first()
+def _find_user_by_email(db: Session, email: str) -> User | None:
+    return db.execute(select(User).where(User.email == email.lower().strip())).scalars().first()
 
 
 @router.post("/auth/signup", status_code=201)
@@ -91,7 +89,7 @@ def signup(payload: SignupIn, db: Session = Depends(get_db)):
 
 @router.post("/auth/login")
 def login(payload: LoginIn, db: Session = Depends(get_db)):
-    user = _find_user_by_username(db, payload.username)
+    user = _find_user_by_email(db, payload.email)
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     # Track "which user logged in and when" — visible in the admin users list.

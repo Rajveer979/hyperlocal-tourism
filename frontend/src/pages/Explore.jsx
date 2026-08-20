@@ -105,7 +105,13 @@ export default function Explore() {
             {filtered.map((e) => (
               <ExperienceCard key={e.id} experience={e} userDistance={nearbyMode ? e._distance_km : undefined} />
             ))}
-            {filtered.length === 0 && <p className="card text-sm text-stone-400">Nothing matches — loosen the filters.</p>}
+            {filtered.length === 0 && (
+              <div className="card text-center py-8">
+                <p className="text-3xl">🔍</p>
+                <p className="mt-2 text-sm font-medium text-stone-600">No experiences found</p>
+                <p className="mt-1 text-xs text-stone-400">Hosts haven't listed any experiences yet.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

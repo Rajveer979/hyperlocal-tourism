@@ -86,11 +86,17 @@ export default function Home() {
         </div>
         {loading ? (
           <Spinner label="Loading experiences…" />
-        ) : (
+        ) : featured && featured.length > 0 ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {featured?.slice(0, 6).map((e) => (
+            {featured.slice(0, 6).map((e) => (
               <ExperienceCard key={e.id} experience={e} />
             ))}
+          </div>
+        ) : (
+          <div className="card mx-auto max-w-md text-center">
+            <p className="text-4xl">🏘️</p>
+            <p className="mt-3 text-lg font-semibold text-stone-700">No experiences yet</p>
+            <p className="mt-1 text-sm text-stone-500">Hosts haven't listed any experiences yet. Check back soon!</p>
           </div>
         )}
       </section>
