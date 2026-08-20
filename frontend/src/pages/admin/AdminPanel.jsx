@@ -44,37 +44,45 @@ export default function AdminPanel() {
 
       <h2 className="mt-8 mb-3 text-lg font-semibold text-stone-800">Hosts</h2>
       <div className="space-y-3">
-        {Object.values(hosts).map((h) => (
-          <div key={h.id} className="card flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-stone-800">{h.name}</p>
-              <p className="text-sm text-stone-500">{h.village} · {h.languages_spoken.join(', ')}</p>
-              {verified[h.id] || h.verified_by ? (
-                <div className="mt-1"><VerifiedBadge org={h.verified_by || 'Gram Panchayat'} /></div>
-              ) : (
-                <Badge color="stone">Unverified</Badge>
-              )}
+        {Object.values(hosts).length === 0 ? (
+          <p className="card text-sm text-stone-400">No hosts registered yet.</p>
+        ) : (
+          Object.values(hosts).map((h) => (
+            <div key={h.id} className="card flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-stone-800">{h.name}</p>
+                <p className="text-sm text-stone-500">{h.village} · {h.languages_spoken.join(', ')}</p>
+                {verified[h.id] || h.verified_by ? (
+                  <div className="mt-1"><VerifiedBadge org={h.verified_by || 'Gram Panchayat'} /></div>
+                ) : (
+                  <Badge color="stone">Unverified</Badge>
+                )}
+              </div>
+              <button className={verified[h.id] ? 'btn-secondary' : 'btn-primary'} onClick={() => toggleVerify(h.id)}>
+                {verified[h.id] ? 'Revoke badge' : 'Verify + issue badge'}
+              </button>
             </div>
-            <button className={verified[h.id] ? 'btn-secondary' : 'btn-primary'} onClick={() => toggleVerify(h.id)}>
-              {verified[h.id] ? 'Revoke badge' : 'Verify + issue badge'}
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
       <h2 className="mt-10 mb-3 text-lg font-semibold text-stone-800">Listings</h2>
       <div className="space-y-3">
-        {experiences.map((e) => (
-          <div key={e.id} className="card flex items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-stone-800">{e.title}</p>
-              <p className="text-sm text-stone-500">{e.village_name} · {e.category}</p>
+        {experiences.length === 0 ? (
+          <p className="card text-sm text-stone-400">No listings yet.</p>
+        ) : (
+          experiences.map((e) => (
+            <div key={e.id} className="card flex items-center justify-between gap-3">
+              <div>
+                <p className="font-semibold text-stone-800">{e.title}</p>
+                <p className="text-sm text-stone-500">{e.village_name} · {e.category}</p>
+              </div>
+              <button className={hidden[e.id] ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHidden(e.id)}>
+                {hidden[e.id] ? 'Unhide' : 'Hide listing'}
+              </button>
             </div>
-            <button className={hidden[e.id] ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHidden(e.id)}>
-              {hidden[e.id] ? 'Unhide' : 'Hide listing'}
-            </button>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   )

@@ -15,6 +15,8 @@ review gate demoable.
 Re-runnable: wipes `users` + `password_reset_tokens` and re-inserts.
 """
 
+from sqlalchemy import text
+
 from app.core.security import hash_password
 from app.database import Base, SessionLocal, engine
 from app.models import PasswordResetToken, User
@@ -36,6 +38,11 @@ def run() -> None:
             password = u.pop("password")
             db.add(User(**u, password_hash=hash_password(password)))
         db.commit()
+
+        # Reset PostgreSQL sequences to match seeded IDs
+        if str(engine.url).startswith("postgresql"):
+            db.execute(text("SELECT setval('users_id_seq', (SELECT COALESCE(MAX(id), 1) FROM users))"))
+            db.commit()
 
     print(f"Seeded {len(USERS)} demo users (host@demo / traveller@demo / admin@demo).")
 

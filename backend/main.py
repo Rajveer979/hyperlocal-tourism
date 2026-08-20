@@ -7,7 +7,6 @@ Docs: http://localhost:8000/docs
 import json
 import os
 from contextlib import asynccontextmanager
-
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
