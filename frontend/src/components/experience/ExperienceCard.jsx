@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom'
 import { CATEGORY_MAP } from '../../utils/constants.js'
-import { formatINR } from '../../utils/format.js'
+import { formatINR, formatKm, formatDuration } from '../../utils/format.js'
 import VerifiedBadge from './VerifiedBadge.jsx'
 
 // F9/F10 card. Shows uploaded photos as background (F5), category emoji fallback.
-export default function ExperienceCard({ experience, distanceKm }) {
+// distanceKm = off-route distance (F8), userDistance = from user's GPS (Find Nearby).
+export default function ExperienceCard({ experience, distanceKm, userDistance }) {
   const cat = CATEGORY_MAP[experience.category] || CATEGORY_MAP.other
   const hasPhotos = experience.photos && experience.photos.length > 0
 
@@ -37,8 +38,18 @@ export default function ExperienceCard({ experience, distanceKm }) {
           <h3 className="font-semibold text-stone-800 group-hover:text-brand-dark">{experience.title}</h3>
         </div>
         <p className="text-sm text-stone-500">
-          📍 {experience.village_name || 'Unknown village'}
+          📍 {experience.village_name || 'Unknown village'} · {formatDuration(experience.duration_minutes)}
         </p>
+        {/* Distance indicators */}
+        {distanceKm != null && (
+          <p className="text-xs text-amber-600">🚗 {formatKm(distanceKm)} off route</p>
+        )}
+        {userDistance != null && (
+          <p className="flex items-center gap-1 text-xs text-blue-600">
+            📍 {formatKm(userDistance)} away
+            {userDistance < 5 && <span className="ml-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">Nearby</span>}
+          </p>
+        )}
         {experience.languages?.length > 0 && (
           <p className="text-xs text-stone-400">
             Speaks: {experience.languages.join(', ')}

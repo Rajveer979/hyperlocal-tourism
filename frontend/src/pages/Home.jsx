@@ -5,25 +5,18 @@ import { useApi } from '../hooks/useApi.js'
 import { getExperiences } from '../services/experiences.js'
 import ExperienceCard from '../components/experience/ExperienceCard.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
-import { DEMO_ROUTE } from '../utils/constants.js'
 
-// Landing + the F8 route search ("From → To").
 export default function Home() {
   const { t, user } = useApp()
   const navigate = useNavigate()
-  const [from, setFrom] = useState(DEMO_ROUTE.from.name)
-  const [to, setTo] = useState(DEMO_ROUTE.to.name)
-  const [radius, setRadius] = useState(DEMO_ROUTE.radius_km)
+  const [city, setCity] = useState('')
 
   const { data: featured, loading } = useApi(() => getExperiences({}), [])
 
-  const searchRoute = (e) => {
+  const searchCity = (e) => {
     e.preventDefault()
-    if (!user) {
-      navigate('/login')
-      return
-    }
-    navigate(`/route?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&radius_km=${radius}`)
+    if (!city.trim()) return
+    navigate(`/search?city=${encodeURIComponent(city)}`)
   }
 
   const handleHostVoice = () => {
@@ -44,35 +37,31 @@ export default function Home() {
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-stone-600">{t('hero_subtitle')}</p>
 
-          {/* Route search (F8) */}
-          <form onSubmit={searchRoute} className="mx-auto mt-10 flex max-w-3xl flex-wrap items-end justify-center gap-3 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-stone-200">
-            {!user && <p className="w-full text-center text-sm text-amber-600">Log in to plan your journey</p>}
-            <div>
-              <label className="label">From</label>
-              <input className="input w-44" value={from} onChange={(e) => setFrom(e.target.value)} placeholder="City" />
-            </div>
-            <div>
-              <label className="label">To</label>
-              <input className="input w-44" value={to} onChange={(e) => setTo(e.target.value)} placeholder="City" />
-            </div>
-            <div>
-              <label className="label">Radius (km)</label>
-              <input type="number" min="1" className="input w-24" value={radius} onChange={(e) => setRadius(e.target.value)} />
+          {/* City search */}
+          <form onSubmit={searchCity} className="mx-auto mt-10 flex max-w-xl flex-wrap items-end justify-center gap-3 rounded-2xl bg-white p-4 shadow-lg ring-1 ring-stone-200">
+            <div className="flex-1 min-w-[200px]">
+              <label className="label">City / Town</label>
+              <input
+                className="input w-full"
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="e.g. Ahmedabad, Udaipur, Mumbai"
+              />
             </div>
             <button type="submit" className="btn-primary">
-              🗺️ {t('cta_search')}
+              🔍 {t('cta_search')}
             </button>
           </form>
 
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-stone-500">
-            <span>✨ Stops appear along your route, not just in cities</span>
+            <span>📍 Enter any city or town</span>
             <span>🛡️ Panchayat-verified hosts</span>
-            <span>💬 Hosts list by speaking</span>
+            <span>🧭 Find local guides nearby</span>
           </div>
         </div>
       </section>
 
-      {/* Host CTA (F1) — only shown to hosts or non-logged-in users */}
+      {/* Host CTA (F1) */}
       {(!user || user.role === 'host') && (
         <section className="mx-auto max-w-6xl px-4 py-12">
           <div className="card flex flex-wrap items-center justify-between gap-4 bg-brand-light/50">
@@ -91,8 +80,8 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-4 pb-16">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-stone-800">Featured experiences</h2>
-          <Link to="/explore" className="text-sm font-semibold text-brand-dark hover:underline">
-            Browse all →
+          <Link to="/search" className="text-sm font-semibold text-brand-dark hover:underline">
+            Search by city →
           </Link>
         </div>
         {loading ? (
