@@ -70,7 +70,7 @@ export async function login(username, password) {
   }
   return request('/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ email: username, password }),
   })
 }
 
