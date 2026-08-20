@@ -8,3 +8,6 @@ resend
 email-validator  # pydantic EmailStr (auth)
 google-genai
 groq
+shapely
+httpx
+pytest

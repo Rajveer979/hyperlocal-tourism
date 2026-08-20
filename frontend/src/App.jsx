@@ -4,9 +4,10 @@ import Navbar from './components/layout/Navbar.jsx'
 import Footer from './components/layout/Footer.jsx'
 import Home from './pages/Home.jsx'
 import Explore from './pages/Explore.jsx'
-import RouteResults from './pages/RouteResults.jsx'
+import CitySearch from './pages/CitySearch.jsx'
 import ExperienceDetail from './pages/ExperienceDetail.jsx'
 import BookingConfirm from './pages/BookingConfirm.jsx'
+import MyBookings from './pages/MyBookings.jsx'
 import Itinerary from './pages/Itinerary.jsx'
 import DayPass from './pages/DayPass.jsx'
 import HostHome from './pages/host/HostHome.jsx'
@@ -34,9 +35,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/explore" element={<Explore />} />
-          <Route path="/route" element={<RouteResults />} />
+          <Route path="/search" element={<CitySearch />} />
+          <Route path="/route" element={<CitySearch />} />
           <Route path="/experience/:id" element={<ExperienceDetail />} />
           <Route path="/book/:id" element={<BookingConfirm />} />
+          <Route path="/bookings" element={<MyBookings />} />
           <Route path="/itinerary/:bookingId" element={<Itinerary />} />
           <Route path="/daypass" element={<DayPass />} />
           <Route path="/host" element={<HostHome />} />
