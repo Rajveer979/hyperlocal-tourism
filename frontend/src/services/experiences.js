@@ -5,15 +5,15 @@ import {
   reviews,
   getExperience,
   getReviewsFor,
-  routeResult,
-  routePolyline,
   dayPasses,
   pois,
 } from '../data/mockData.js'
 
+// Re-import for mock guides
+import { MOCK_GUIDES } from '../data/mockGuides.js'
+
 // ── Create ──────────────────────────────────────────────────────────────
-// Host publishes a listing — saves to DB (live) or localStorage (mock).
-const LS_KEY = 'padaav_listings' // persisted user-created listings
+const LS_KEY = 'padaav_listings'
 
 function getLocalListings() {
   try {
@@ -32,13 +32,10 @@ function saveLocalListing(listing) {
 export async function createExperience(data) {
   if (!isLive('experiences')) {
     await delay(300)
-    // Convert File objects to data URLs for persistence
-    const photos = (data.photos || []).map((p) => p)
     const local = {
       id: Date.now(),
       host_id: 0,
       ...data,
-      photos,
       is_active: true,
       created_at: new Date().toISOString(),
     }
@@ -54,13 +51,11 @@ export async function createExperience(data) {
 export async function uploadPhoto(experienceId, file) {
   if (!isLive('experiences')) {
     await delay(200)
-    // In mock mode, convert file to data URL and attach to the listing
     const dataUrl = await new Promise((resolve) => {
       const reader = new FileReader()
       reader.onload = () => resolve(reader.result)
       reader.readAsDataURL(file)
     })
-    // Update the listing in localStorage with the photo
     const all = getLocalListings()
     const listing = all.find((l) => l.id === Number(experienceId))
     if (listing) {
@@ -85,7 +80,6 @@ export async function uploadPhoto(experienceId, file) {
 export async function getExperiences(filters = {}) {
   if (!isLive('experiences')) {
     await delay(200)
-    // Merge seeded + locally-saved listings
     let items = [...experiences, ...getLocalListings()]
     if (filters.category && filters.category !== 'all') {
       items = items.filter((e) => e.category === filters.category)
@@ -108,7 +102,6 @@ export async function getExperiences(filters = {}) {
           e.village_name.toLowerCase().includes(q),
       )
     }
-    // Attach host info (F6/F7) — same shape the API returns
     return items.map(withHost)
   }
   const params = new URLSearchParams(filters).toString()
@@ -119,7 +112,6 @@ export async function getExperienceById(id) {
   if (!isLive('experiences')) {
     await delay(150)
     const numId = Number(id)
-    // Check seeded data first, then locally-saved listings from voice/manual publish
     const fromSeed = getExperience(numId)
     if (fromSeed) return withHost(fromSeed)
     const local = getLocalListings().find((l) => l.id === numId)
@@ -128,19 +120,100 @@ export async function getExperienceById(id) {
   return request(`/experiences/${id}`)
 }
 
-// F8 — route-based discovery (backend computes with OSRM + shapely)
-export async function getRouteResult(from, to, radiusKm = 10) {
-  if (!isLive('route')) {
+// F8 -- City/town + radius search
+export async function getNearbyExperiences(city, radiusKm = 10) {
+  if (!isLive('experiences')) {
     await delay(400)
-    // MOCK: returns the pre-seeded corridor result. The real call hits
-    // GET /experiences/route?from=&to=&radius_km= once the backend ships.
-    return { polyline: routePolyline, results: routeResult.map((r) => ({ ...r, experience: withHost(r.experience) })) }
+    const cityCoords = {
+      ahmedabad: { lat: 23.0225, lng: 72.5714 },
+      vadodara: { lat: 22.3072, lng: 73.1812 },
+      surat: { lat: 21.1702, lng: 72.8311 },
+      halol: { lat: 22.5047, lng: 73.4710 },
+      rajkot: { lat: 22.3039, lng: 70.8022 },
+      udaipur: { lat: 24.5854, lng: 73.7125 },
+      mumbai: { lat: 19.0760, lng: 72.8777 },
+      himmatnagar: { lat: 23.5919, lng: 72.9603 },
+      shamlaji: { lat: 23.6879, lng: 73.3861 },
+    }
+    const key = city.toLowerCase().trim()
+    const center = cityCoords[key] || { lat: 23.02, lng: 72.57 }
+    const R = 6371
+    const toRad = (d) => (d * Math.PI) / 180
+
+    const results = experiences
+      .map((e) => {
+        const dlat = toRad(e.lat - center.lat)
+        const dlng = toRad(e.lng - center.lng)
+        const a =
+          Math.sin(dlat / 2) ** 2 +
+          Math.cos(toRad(center.lat)) * Math.cos(toRad(e.lat)) * Math.sin(dlng / 2) ** 2
+        const dist = R * 2 * Math.asin(Math.sqrt(a))
+        return { experience: withHost(e), distance_km: Math.round(dist * 100) / 100 }
+      })
+      .filter((r) => r.distance_km <= radiusKm)
+      .sort((a, b) => a.distance_km - b.distance_km)
+
+    return {
+      city,
+      center,
+      radius_km: radiusKm,
+      results,
+      total: results.length,
+    }
   }
-  const params = new URLSearchParams({ from: JSON.stringify(from), to: JSON.stringify(to), radius_km: radiusKm })
-  return request(`/experiences/route?${params}`)
+  const params = new URLSearchParams({ city, radius_km: radiusKm })
+  return request(`/experiences/nearby?${params}`)
 }
 
-// F18 — reviews for an experience (gated to completed bookings in production)
+// Guides -- find local guides near a city/town
+export async function getGuides(city, radiusKm = 25) {
+  if (!isLive('experiences')) {
+    await delay(300)
+    const cityCoords = {
+      ahmedabad: { lat: 23.0225, lng: 72.5714 },
+      vadodara: { lat: 22.3072, lng: 73.1812 },
+      surat: { lat: 21.1702, lng: 72.8311 },
+      halol: { lat: 22.5047, lng: 73.4710 },
+      rajkot: { lat: 22.3039, lng: 70.8022 },
+      udaipur: { lat: 24.5854, lng: 73.7125 },
+      mumbai: { lat: 19.0760, lng: 72.8777 },
+      himmatnagar: { lat: 23.5919, lng: 72.9603 },
+      shamlaji: { lat: 23.6879, lng: 73.3861 },
+    }
+    const key = city.toLowerCase().trim()
+    const center = cityCoords[key] || { lat: 23.02, lng: 72.57 }
+    const R = 6371
+    const toRad = (d) => (d * Math.PI) / 180
+
+    const results = MOCK_GUIDES
+      .map((g) => {
+        if (g.city && g.city.toLowerCase() === key) {
+          return { ...g, distance_km: 0 }
+        }
+        const dlat = toRad(g.lat - center.lat)
+        const dlng = toRad(g.lng - center.lng)
+        const a =
+          Math.sin(dlat / 2) ** 2 +
+          Math.cos(toRad(center.lat)) * Math.cos(toRad(g.lat)) * Math.sin(dlng / 2) ** 2
+        const dist = R * 2 * Math.asin(Math.sqrt(a))
+        return { ...g, distance_km: Math.round(dist * 100) / 100 }
+      })
+      .filter((g) => g.distance_km <= radiusKm && g.available)
+      .sort((a, b) => a.distance_km - b.distance_km)
+
+    return {
+      city,
+      center,
+      radius_km: radiusKm,
+      guides: results,
+      total: results.length,
+    }
+  }
+  const params = new URLSearchParams({ city, radius_km: radiusKm })
+  return request(`/guides?${params}`)
+}
+
+// F18 -- reviews
 export async function getReviews(experienceId) {
   if (!isLive('reviews')) {
     await delay(150)
@@ -149,16 +222,13 @@ export async function getReviews(experienceId) {
   return request(`/experiences/${experienceId}/reviews`)
 }
 
-// F18 — post a review. Real API enforces: only travellers with a *completed*
-// booking may review. Mock mode appends to the shared mock list so a reload
-// (or re-fetch of getReviews) shows the new review immediately.
 export async function addReview(experienceId, { rating, comment }) {
   if (!isLive('reviews')) {
     await delay(400)
     const review = {
       id: Date.now(),
       experience_id: Number(experienceId),
-      traveller_name: 'Aarav', // demo traveller (F22)
+      traveller_name: 'Aarav',
       rating,
       comment,
       created_at: new Date().toISOString(),

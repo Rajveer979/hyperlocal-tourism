@@ -3,7 +3,7 @@
 **Project:** Hyperlocal Tourism · Smart India Hackathon
 **Read first:** [`API-CONTRACT.md`](./API-CONTRACT.md) — the shared day-0 contract everyone builds against.
 
-> **Project snapshot:** You own the second money moment — traveller enters Ahmedabad → Udaipur, the route draws, and experiences appear along it. You also own the day-one geography check that makes that moment *true* (villages genuinely within 10 km of the route).
+> **Project snapshot:** Traveller enters a city/town name + radius, the map shows a circle with all experiences within that area. You also own "Find a Guide" — matching local guides to the searched area — and "My Location" for nearby sorting.
 
 ---
 
@@ -15,59 +15,97 @@ Map rendering, route drawing, distance-to-polyline math, and routing strategy (s
 
 | Feature | Your part |
 |---|---|
-| **F8** Route discovery ⭐ | route polyline render, distance-to-polyline filtering, ordered stops |
-| **F9** Map browse | shared `MapView` component for the Explore page |
-| Corridor verification | day-one task with the data teammate — makes F8 true on stage |
+| **F8** City + Radius Search ⭐ | user enters city + radius → map shows circle + experiences within it |
+| **F9** Map Browse | shared `MapView` component for the Explore page |
+| **Find a Guide** | search guides available in a city/town area |
+| My Location / Find Nearby | browser geolocation + sort by distance |
+| Offline Map Tiles | service worker caching OSM tiles for offline use |
 
 ## Deliverables
 
 ```
-frontend/src/components/map/   MapView.jsx (Leaflet wrapper) · RouteLayer.jsx (draws polyline) · ExperiencePin.jsx
-frontend/src/utils/geo.js      point-to-segment helpers (client-side preview only — server decides)
-backend/app/services/geo_service.py      shapely: LineString(polyline).distance(Point(x,y))
-backend/app/services/routing_service.py  OSRM fetch → polyline, with SEEDED POLYLINE as primary
-backend/seed/route_ahmedabad_udaipur.json  pre-fetched polyline (freeze on day 1)
+frontend/src/components/map/   MapView.jsx (Leaflet wrapper) · RouteLayer.jsx · ExperiencePin.jsx · GuidePin.jsx
+frontend/src/hooks/            useGeolocation.js (browser GPS) · useOfflineMaps.js (tile caching)
+frontend/src/pages/            CitySearch.jsx (F8 city+radius search) · Explore.jsx (F9 browse)
+frontend/src/components/guide/  FindGuideButton.jsx (F18 guide search)
+frontend/src/public/sw.js       service worker for offline OSM tile caching
+frontend/src/utils/geo.js      haversine distance helpers
+backend/app/services/geo_service.py   shapely distance-to-polyline + city radius filtering
+backend/app/services/routing_service.py  OSRM fetch → polyline (legacy, kept for route layer)
+backend/app/guides_data.py       seed guide profiles with lat/lng
+backend/app/experiences_data.py  seed experiences with verified lat/lng
 ```
 
 ## The math (do this right)
 
-- Server: `shapely` — `LineString(polyline).distance(Point(lat, lng))` is one call, BUT shapely works in **degrees**. Apply a haversine correction or a local projection so the 10 km threshold is actually kilometres.
-- Sort matches by position along the polyline (route progress 0–1) → pins become ordered stops.
+- Server: `shapely` for polyline distance (in degrees → local projection to km).
+- Haversine: `GET /experiences/nearby?city=X&radius_km=R` uses haversine to filter experiences within the radius of a geocoded city center.
+- Haversine sort: `sort_by=distance` orders experiences by distance from user's GPS coordinates.
 
-## Routing strategy
+## City search strategy
 
-1. **Primary:** pre-seeded polyline for the demo corridor (never flaky)
-2. **Fallback:** live OSRM fetch (public server is rate-limited — don't rely on it on stage)
-3. If even the line fails, pins + distances must still render
+1. Geocode the city/town name (Nominatim API)
+2. Haversine-filter all experiences within the radius
+3. Sort by distance from center (ascending)
 
 ## Day-one task: corridor verification (with the data teammate) — do this FIRST
 
-1. Pick corridor (default: NH-48 Ahmedabad → Udaipur)
-2. Geocode endpoints → fetch polyline once → save to seed
-3. Check every planned experience's lat/lng: distance to polyline ≤ 10 km
-4. **Freeze the verified list** — this is the contract every other feature depends on
-5. Result: you KNOW the stage moment shows "6 experiences along the route"
+1. Pick demo city (default: Ahmedabad)
+2. Place experiences with verified lat/lng in seed data
+3. **Freeze the verified list** — this is the contract every other feature depends on
+4. Result: `GET /experiences/nearby?city=Ahmedabad&radius_km=200` returns all experiences
+
+### ✅ Done — verified corridor (frozen)
+
+- Math: `backend/app/services/geo_service.py` (shapely + haversine in km projection)
+- Seed: `backend/app/experiences_data.py` (12 verified NH-48 villages with real lat/lng)
+- Guides: `backend/app/guides_data.py` (6 seed guide profiles with lat/lng)
+- Frontend mock: `frontend/src/data/mockData.js` (12 experiences) + `frontend/src/data/mockGuides.js` (6 guides)
+
+### Verified villages (NH-48 corridor)
+
+| Village | Coordinates | Category |
+|---|---|---|
+| Mota Chiloda | 23.315, 72.640 | Food |
+| Chandrala | 23.383, 72.628 | Food |
+| Prantij | 23.417, 72.834 | Craft |
+| Himmatnagar | 23.589, 72.964 | Heritage |
+| Raigadh | 23.893, 73.078 | Food |
+| Shamlaji | 24.050, 73.130 | Food |
+| Dhamod | 24.234, 73.163 | Craft |
+| Amjhhara | 24.343, 73.198 | Craft |
+| Kherwara | 24.449, 73.253 | Food |
+| Rishabdeo | 24.670, 73.298 | Craft |
+| Vav | 24.717, 73.324 | Food |
+| Chanbora | 25.009, 73.355 | Craft |
 
 ## Dependencies
 
-- **Needs:** `GET /experiences/route` from the backend teammate (you provide `geo_service`, they wire it); seed lat/lng data from the data teammate; corridor decision from the team.
-- **Gives:** `MapView` / `RouteLayer` / `ExperiencePin` components + props contract to the frontend teammate; `geo_service` to the backend teammate; verified corridor to everyone.
+- **Needs:** `GET /experiences/nearby` and `GET /guides` from the backend (you provide `geo_service`); seed lat/lng data from the data teammate.
+- **Gives:** `MapView` / `ExperiencePin` / `GuidePin` components; `geo_service` + `useGeolocation` hook; verified corridor to everyone.
 
 ## Build order
 
 1. Day 0 — agree map props contract with the frontend teammate
-2. Corridor verification + polyline seed (with the data teammate)
+2. Corridor verification + seed data (with the data teammate)
 3. Leaflet `MapView` skeleton (OSM tiles, attribution visible)
 4. `geo_service` (shapely + haversine) + unit check on known points
-5. `/experiences/route` wired with the backend teammate
-6. `RouteLayer` + `ExperiencePin` + ordered-stop rendering
+5. `/experiences/nearby` + `/guides` wired with the backend teammate
+6. `ExperiencePin` + `GuidePin` + CitySearch page
 7. Explore map browse (shared `MapView`)
+8. My Location / Find Nearby
+9. Offline map tiles (service worker)
 
 ## Definition of done
 
-- [ ] For the demo corridor: ≥ 10 experiences verified inside 10 km of the route
-- [ ] `/experiences/route` returns correct ordered results
-- [ ] Map renders route + pins in RouteResults and Explore
+- [x] For the demo corridor: 12 experiences verified with real coordinates
+- [x] `GET /experiences/nearby` returns experiences within radius
+- [x] `GET /guides` returns available guides for a city
+- [x] CitySearch page renders map with circle + pins
+- [x] Explore page renders all experiences on map
+- [x] Find a Guide button shows matching guides
+- [x] My Location sorts by distance from user GPS
+- [x] Offline map tiles cached via service worker
 - [ ] Tile attribution stays visible (OSM policy)
 
 ## Gotchas
