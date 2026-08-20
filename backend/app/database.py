@@ -1,33 +1,37 @@
-"""Database setup — SQLAlchemy over SQLite for dev.
-
-Per the plan: SQLite is fine for development and the demo; swapping to
-PostgreSQL later is a one-line DATABASE_URL change (the models are portable).
-
-This slice deliberately defines only the tables F18 (reviews) needs:
-`bookings` (for the completed-booking gate) and `reviews`. The backend
-teammate owns the full schema (users, experiences, availability, etc.) —
-their models supersede these on merge.
-"""
+"""Database setup — Neon PostgreSQL (shared cloud database)."""
 
 import os
 
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
-load_dotenv()  # reads backend/.env when running from backend/
+# Auto-create .env from .env.example if missing
+_backend_dir = os.path.join(os.path.dirname(__file__), "..")
+_env_path = os.path.join(_backend_dir, ".env")
+_example_path = os.path.join(_backend_dir, ".env.example")
+if not os.path.exists(_env_path) and os.path.exists(_example_path):
+    import shutil
+    shutil.copy2(_example_path, _env_path)
+    print("✅ Created .env from .env.example")
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(_env_path)
+except ImportError:
+    pass
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hyperlocal.db")
 
-# SQLite needs check_same_thread=False; PostgreSQL with Supabase needs SSL
-_connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
-_engine_kwargs = {}
-if DATABASE_URL.startswith("postgresql") and "supabase" in DATABASE_URL:
-    _engine_kwargs["connect_args"] = {"sslmode": "require"}
+# SQLite needs check_same_thread=False; Neon/PostgreSQL needs SSL
+if DATABASE_URL.startswith("sqlite"):
+    engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
-    _engine_kwargs["connect_args"] = _connect_args
+    engine = create_engine(
+        DATABASE_URL,
+        connect_args={"sslmode": "require"},
+        pool_pre_ping=True,
+    )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, **_engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
