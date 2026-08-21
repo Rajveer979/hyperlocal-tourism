@@ -6,7 +6,7 @@ call an LLM to produce a realistic half-day itinerary.
 Fallback chain (same as voice):
   1. Gemini — one text call → JSON timeline
   2. Groq   — one text call → JSON timeline
-  3. fixture — hardcoded 3-stop plan (demo never breaks)
+  3. fixture — location-aware fallback (demo never breaks)
 """
 
 import json
@@ -27,7 +27,7 @@ ITINERARY_PROMPT = """You are a travel planner for a village tourism platform in
 
 A traveller has booked this experience:
 - Title: {title}
-- Village: {village}
+- Village/Town: {village}
 - Slot time: {slot_time}
 - Description: {description}
 
@@ -41,6 +41,7 @@ Create a realistic half-day itinerary that:
 4. Includes realistic travel times between stops (10-30 min for nearby, 30-60 min for farther)
 5. The booked experience is the centerpiece, placed at the correct slot time
 6. Mixes heritage/nature POIs with the booked experience
+7. Uses ONLY the POIs listed above — do NOT invent places that aren't in the list
 
 Return ONLY JSON (no markdown, no commentary) as an array of objects:
 [
@@ -65,6 +66,16 @@ Rules:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _safe_float(val, default=0.0):
+    """Safely convert a value to float, handling None."""
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
 
 def _haversine_km(lat1, lng1, lat2, lng2):
     R = 6371.0
@@ -94,12 +105,15 @@ def _format_poi_list(pois):
     """Format POIs for the LLM prompt."""
     lines = []
     for i, poi in enumerate(pois, 1):
+        dist = poi.get('distance_km', '')
+        dist_str = f', {dist} km away' if dist else ''
+        note = poi.get('description') or poi.get('note', '')
         lines.append(
-            f"{i}. {poi['name']} ({poi.get('category', 'place')}) — "
-            f"{poi['distance_km']} km away, lat: {poi['lat']}, lng: {poi['lng']}"
+            f"{i}. {poi['name']} ({poi.get('category', 'place')}){dist_str} — "
+            f"lat: {poi['lat']}, lng: {poi['lng']}"
         )
-        if poi.get("description"):
-            lines.append(f"   {poi['description']}")
+        if note:
+            lines.append(f"   {note}")
     return "\n".join(lines)
 
 
@@ -123,21 +137,95 @@ def _extract_json(text):
 def _normalize_step(step):
     """Coerce one step to the shape the frontend expects."""
     return {
-        "time": str(step.get("time", "12:00")),
-        "place": str(step.get("place", "Unknown")),
-        "lat": float(step.get("lat", 0)),
-        "lng": float(step.get("lng", 0)),
-        "note": str(step.get("note", "")),
-        "type": str(step.get("type", "poi")),
+        "time": str(step.get("time") or "12:00"),
+        "place": str(step.get("place") or "Unknown"),
+        "lat": _safe_float(step.get("lat")),
+        "lng": _safe_float(step.get("lng")),
+        "note": str(step.get("note") or ""),
+        "type": str(step.get("type") or "poi"),
     }
 
 
 # ---------------------------------------------------------------------------
-# Fixture (Layer 3) — hardcoded fallback
+# Fixture (Layer 3) — location-aware fallback
 # ---------------------------------------------------------------------------
 
+REGION_FALLBACKS = {
+    "jaipur": [
+        {"name": "Amber Fort", "lat": 26.9855, "lng": 75.8513, "category": "heritage", "note": "Hilltop palace-fortress with mirrorwork and panoramic views"},
+        {"name": "Hawa Mahal", "lat": 26.9239, "lng": 75.8267, "category": "heritage", "note": "Iconic Palace of Winds with 953 latticed windows"},
+        {"name": "Jantar Mantar", "lat": 26.9247, "lng": 75.8245, "category": "historical", "note": "UNESCO astronomical observatory with the world's largest stone sundial"},
+        {"name": "Nahargarh Fort", "lat": 26.9387, "lng": 75.8152, "category": "heritage", "note": "Fort overlooking the Pink City with stunning sunset views"},
+        {"name": "Jal Mahal", "lat": 26.9532, "lng": 75.8462, "category": "heritage", "note": "Water palace in the middle of Man Sagar Lake"},
+    ],
+    "jodhpur": [
+        {"name": "Mehrangarh Fort", "lat": 26.2985, "lng": 73.0184, "category": "heritage", "note": "One of India's largest forts towering over the Blue City"},
+        {"name": "Jaswant Thada", "lat": 26.2990, "lng": 73.0146, "category": "heritage", "note": "White marble cenotaph — the Taj Mahal of Marwar"},
+        {"name": "Clock Tower Market", "lat": 26.2933, "lng": 73.0261, "category": "food", "note": "Bustling bazaar with spices, textiles, and street food"},
+    ],
+    "udaipur": [
+        {"name": "City Palace Udaipur", "lat": 24.5764, "lng": 73.6913, "category": "heritage", "note": "Rajput lakeside palace complex overlooking Lake Pichola"},
+        {"name": "Fateh Sagar Lake", "lat": 24.5975, "lng": 73.6764, "category": "nature", "note": "Scenic lake with Nehru Island Park — sunset boat ride"},
+        {"name": "Jagdish Temple", "lat": 24.5883, "lng": 73.6909, "category": "temple", "note": "Indo-Aryan temple with carved elephants and deity of Lord Vishnu"},
+    ],
+    "jaisalmer": [
+        {"name": "Jaisalmer Fort", "lat": 26.9124, "lng": 70.9126, "category": "heritage", "note": "Living sandstone fort with shops, homes, and temples inside"},
+        {"name": "Sam Sand Dunes", "lat": 26.7969, "lng": 70.4935, "category": "nature", "note": "Rolling Thar Desert dunes — camel safari at sunset"},
+        {"name": "Patwon Ki Haveli", "lat": 26.9058, "lng": 70.9143, "category": "heritage", "note": "Ornate 19th-century merchant mansions with intricate carvings"},
+    ],
+    "delhi": [
+        {"name": "Red Fort", "lat": 28.6562, "lng": 77.2410, "category": "heritage", "note": "Mughal emperor Shah Jahan's massive red sandstone palace"},
+        {"name": "Qutub Minar", "lat": 28.5244, "lng": 77.1855, "category": "heritage", "note": "73-meter tall victory tower from 1193"},
+        {"name": "Humayun's Tomb", "lat": 28.5933, "lng": 77.2507, "category": "heritage", "note": "Mughal garden tomb that inspired the Taj Mahal"},
+        {"name": "Chandni Chowk", "lat": 28.6506, "lng": 77.2334, "category": "food", "note": "Old Delhi's legendary street food market — paranthas, chaat, and kebabs"},
+    ],
+    "mumbai": [
+        {"name": "Gateway of India", "lat": 18.9220, "lng": 72.8347, "category": "heritage", "note": "Iconic 1924 arch monument overlooking the Arabian Sea"},
+        {"name": "Elephanta Caves", "lat": 18.9634, "lng": 72.9315, "category": "heritage", "note": "UNESCO island caves with massive rock-cut Shiva sculptures"},
+        {"name": "Marine Drive", "lat": 18.9432, "lng": 72.8231, "category": "nature", "note": "C-shaped boulevard along the coast — sunset walk"},
+    ],
+    "varanasi": [
+        {"name": "Dashashwamedh Ghat", "lat": 25.3046, "lng": 83.0106, "category": "cultural", "note": "Spectacular Ganga Aarti ceremony every evening"},
+        {"name": "Sarnath", "lat": 25.3714, "lng": 83.0226, "category": "heritage", "note": "Where Buddha gave his first sermon — ancient stupas and deer park"},
+    ],
+    "ahmedabad": [
+        {"name": "Sabarmati Ashram", "lat": 23.0627, "lng": 72.5807, "category": "heritage", "note": "Gandhi's riverside ashram and museum"},
+        {"name": "Adalaj Stepwell", "lat": 23.1638, "lng": 72.6364, "category": "heritage", "note": "Ornate 15th-century stepwell with intricate carvings"},
+        {"name": "Jama Masjid", "lat": 23.0243, "lng": 72.5812, "category": "heritage", "note": "Ahmedabad's oldest mosque with stunning yellow sandstone architecture"},
+    ],
+    "vadodara": [
+        {"name": "Laxmi Vilas Palace", "lat": 22.3117, "lng": 73.1817, "category": "heritage", "note": "Indo-Saracenic palace four times the size of Buckingham Palace"},
+        {"name": "Champaner-Pavagadh", "lat": 22.4833, "lng": 73.5333, "category": "heritage", "note": "UNESCO World Heritage archaeological park in the Aravalli foothills"},
+    ],
+    "hampi": [
+        {"name": "Virupaksha Temple", "lat": 15.3350, "lng": 76.4600, "category": "temple", "note": "Active 7th-century temple with a 160-foot tower"},
+        {"name": "Vijaya Vittala Temple", "lat": 15.3483, "lng": 76.4730, "category": "heritage", "note": "Famous for its stone chariot and musical pillars"},
+    ],
+    "goa": [
+        {"name": "Basilica of Bom Jesus", "lat": 15.5009, "lng": 73.9116, "category": "heritage", "note": "UNESCO baroque church housing St. Francis Xavier's remains"},
+        {"name": "Fort Aguada", "lat": 15.4922, "lng": 73.7736, "category": "historical", "note": "17th-century Portuguese fort with panoramic sea views"},
+    ],
+    "kochi": [
+        {"name": "Fort Kochi", "lat": 9.9638, "lng": 76.2431, "category": "heritage", "note": "450-year-old Portuguese/Dutch fishing village with Chinese fishing nets"},
+    ],
+    "alleppey": [
+        {"name": "Alleppey Backwaters", "lat": 9.4981, "lng": 76.3388, "category": "nature", "note": "Houseboat cruises through coconut palm-lined waterways"},
+    ],
+}
+
+def _get_region_fallback(village):
+    """Find fallback POIs based on the village/town name."""
+    if not village:
+        return []
+    village_lower = village.lower().strip()
+    for key, pois in REGION_FALLBACKS.items():
+        if key in village_lower or village_lower in key:
+            return pois
+    return []
+
+
 def _fixture_itinerary(title, village, slot_time, nearby_pois):
-    """Generate a deterministic 3-step itinerary from available POIs."""
+    """Generate a location-aware itinerary from available POIs or region fallback."""
     slot_hour = 12
     if slot_time and "T" in str(slot_time):
         try:
@@ -145,39 +233,42 @@ def _fixture_itinerary(title, village, slot_time, nearby_pois):
         except (ValueError, IndexError):
             pass
 
+    available_pois = nearby_pois if nearby_pois else _get_region_fallback(village)
+
     steps = []
 
-    # Morning stop (1-2 hours before slot)
     morning_hour = max(8, slot_hour - 2)
-    if nearby_pois:
+    if available_pois:
+        poi = available_pois[0]
         steps.append({
             "time": f"{morning_hour}:00",
-            "place": nearby_pois[0]["name"],
-            "lat": nearby_pois[0]["lat"],
-            "lng": nearby_pois[0]["lng"],
-            "note": f"Start your day at this {nearby_pois[0].get('category', 'heritage')} site",
+            "place": poi["name"],
+            "lat": poi["lat"],
+            "lng": poi["lng"],
+            "note": poi.get("note", f"Start your day at this {poi.get('category', 'heritage')} site"),
             "type": "poi",
         })
 
-    # Booked experience at slot time
+    exp_lat = available_pois[0]["lat"] if available_pois else 0
+    exp_lng = available_pois[0]["lng"] if available_pois else 0
     steps.append({
         "time": f"{slot_hour}:00",
         "place": title or "Your booked experience",
-        "lat": nearby_pois[0]["lat"] if nearby_pois else 0,
-        "lng": nearby_pois[0]["lng"] if nearby_pois else 0,
+        "lat": exp_lat,
+        "lng": exp_lng,
         "note": f"Your booked experience in {village or 'the village'}",
         "type": "experience",
     })
 
-    # Afternoon stop (1-2 hours after slot)
     afternoon_hour = min(17, slot_hour + 2)
-    if len(nearby_pois) > 1:
+    if len(available_pois) > 1:
+        poi2 = available_pois[1]
         steps.append({
             "time": f"{afternoon_hour}:00",
-            "place": nearby_pois[1]["name"],
-            "lat": nearby_pois[1]["lat"],
-            "lng": nearby_pois[1]["lng"],
-            "note": f"End with a visit to this {nearby_pois[1].get('category', 'site')}",
+            "place": poi2["name"],
+            "lat": poi2["lat"],
+            "lng": poi2["lng"],
+            "note": poi2.get("note", f"End with a visit to this {poi2.get('category', 'site')}"),
             "type": "poi",
         })
 
@@ -201,7 +292,7 @@ def _gemini_itinerary(prompt_text):
         model=config.GEMINI_MODEL,
         contents=prompt_text,
         config=types.GenerateContentConfig(
-            temperature=0.3,
+            temperature=0.8,
             response_mime_type="application/json",
         ),
     )
@@ -223,7 +314,7 @@ def _groq_itinerary(prompt_text):
             {"role": "system", "content": "You are a travel planner. Return valid JSON only."},
             {"role": "user", "content": prompt_text},
         ],
-        temperature=0.3,
+        temperature=0.8,
         response_format={"type": "json_object"},
     )
     return _extract_json(completion.choices[0].message.content)
@@ -247,19 +338,39 @@ def generate_itinerary(
 
     Returns: { "steps": [...], "source": "gemini"|"groq"|"fixture" }
     """
-    nearby = find_nearby_pois(lat, lng, radius_km, pois)
+    # Determine if coordinates are real or just defaults
+    _is_default_coords = (abs(lat - 23.0) < 0.1 and abs(lng - 72.5) < 0.1 and village and village.lower() != 'ahmedabad')
+
+    region_pois = _get_region_fallback(village)
+
+    if _is_default_coords or (not lat or not lng):
+        # Coordinates are unreliable — use ONLY region fallback POIs
+        all_pois = region_pois
+    else:
+        # Coordinates are real — combine nearby DB POIs with region fallback
+        nearby = find_nearby_pois(lat, lng, radius_km, pois)
+        all_pois = nearby[:]
+        seen_names = {p["name"] for p in all_pois}
+        for rp in region_pois:
+            if rp["name"] not in seen_names:
+                all_pois.append(rp)
+                seen_names.add(rp["name"])
 
     # Build the prompt
-    poi_list = _format_poi_list(nearby) if nearby else "No nearby POIs found — use your general knowledge of the region."
+    if all_pois:
+        poi_list = _format_poi_list(all_pois)
+    else:
+        poi_list = f"No nearby POIs found for {village or 'this area'}. Suggest nearby attractions based on the village/town name '{village or 'a village in India'}' and general knowledge of the region."
 
     prompt = ITINERARY_PROMPT.replace("{title}", title or "Unnamed experience")
-    prompt = prompt.replace("{village}", village or "a village in Gujarat")
+    prompt = prompt.replace("{village}", village or "a village in India")
     prompt = prompt.replace("{slot_time}", slot_time or "12:00")
     prompt = prompt.replace("{description}", description or "A local village experience")
     prompt = prompt.replace("{radius_km}", str(radius_km))
     prompt = prompt.replace("{poi_list}", poi_list)
+    prompt += f"\n\nCRITICAL: The experience is in {village or 'India'}. ONLY suggest places that are IN or very near {village or 'that city'}. Do NOT suggest places from other cities or states."
 
-    engine = config.VOICE_ENGINE  # reuse the same engine control
+    engine = config.VOICE_ENGINE
 
     # Layer 1 — Gemini
     if engine in ("auto", "gemini") and config.GEMINI_API_KEY:
@@ -284,6 +395,6 @@ def generate_itinerary(
             log.warning("Groq itinerary failed (%s), using fixture", e)
 
     # Layer 3 — Fixture
-    steps = _fixture_itinerary(title, village, slot_time, nearby)
-    log.info("Itinerary generated via fixture")
+    steps = _fixture_itinerary(title, village, slot_time, all_pois)
+    log.info("Itinerary generated via fixture (village=%s, all_pois=%d)", village, len(all_pois))
     return {"steps": steps, "source": "fixture"}

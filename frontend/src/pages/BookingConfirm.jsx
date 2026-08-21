@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi.js'
 import { useApp } from '../context/AppContext.jsx'
 import { getExperienceById } from '../services/experiences.js'
+import { createBooking } from '../services/bookings.js'
 import Spinner from '../components/ui/Spinner.jsx'
 
 export default function BookingConfirm() {
@@ -27,23 +28,39 @@ export default function BookingConfirm() {
   const today = new Date().toISOString().split('T')[0]
   const canConfirm = date && time && name.trim().length > 0
 
-  const handleConfirm = () => {
+  const [saving, setSaving] = useState(false)
+
+  const handleConfirm = async () => {
     if (!canConfirm) return
-    // Save booking to localStorage
-    const LS_KEY = 'padaav_bookings'
-    const existing = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
-    const booking = {
-      id: Date.now(),
-      experience_id: exp.id,
-      traveller_name: user?.name || name || 'Traveller',
-      slot_time: `${date}T${time}`,
-      group_size: groupSize,
-      status: 'confirmed',
-      created_at: new Date().toISOString(),
+    setSaving(true)
+    try {
+      // Save to database via API
+      const result = await createBooking({
+        experience_id: exp.id,
+        slot_time: `${date}T${time}`,
+        group_size: groupSize,
+        traveller_name: user?.name || name || 'Traveller',
+      })
+      // Also save to localStorage as backup (for MyBookings page)
+      const LS_KEY = 'padaav_bookings'
+      const existing = JSON.parse(localStorage.getItem(LS_KEY) || '[]')
+      existing.push({
+        id: result.id,
+        experience_id: exp.id,
+        traveller_name: user?.name || name || 'Traveller',
+        slot_time: `${date}T${time}`,
+        group_size: groupSize,
+        status: 'confirmed',
+        amount: result.amount || total,
+        created_at: new Date().toISOString(),
+      })
+      localStorage.setItem(LS_KEY, JSON.stringify(existing))
+      setConfirmed(true)
+    } catch (err) {
+      alert('Booking failed: ' + err.message)
+    } finally {
+      setSaving(false)
     }
-    existing.push(booking)
-    localStorage.setItem(LS_KEY, JSON.stringify(existing))
-    setConfirmed(true)
   }
 
   // --- Confirmed screen ---
@@ -218,15 +235,15 @@ export default function BookingConfirm() {
 
           <button
             type="button"
-            disabled={!canConfirm}
+            disabled={!canConfirm || saving}
             onClick={handleConfirm}
             className={`w-full rounded-xl px-6 py-3 text-lg font-semibold transition ${
-              canConfirm
+              canConfirm && !saving
                 ? 'bg-green-600 text-white hover:bg-green-700 shadow-md'
                 : 'cursor-not-allowed bg-stone-200 text-stone-400'
             }`}
           >
-            {canConfirm ? `✅ Confirm Booking — ₹${total}` : 'Fill in all details to confirm'}
+            {saving ? '⏳ Booking...' : canConfirm ? `✅ Confirm Booking — ₹${total}` : 'Fill in all details to confirm'}
           </button>
 
           {!canConfirm && (

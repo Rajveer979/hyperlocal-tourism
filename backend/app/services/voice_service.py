@@ -66,6 +66,22 @@ Spoken language: {language}"""
 # Spoken follow-up questions, templated per field + host language (the demo
 # speaks Hindi/Gujarati; anything else falls back to English).
 QUESTIONS = {
+    "host_name": {
+        "hi": "आपका नाम क्या है?",
+        "en": "What is your name?",
+    },
+    "village_name": {
+        "hi": "आप किस गाँव या शहर से हैं?",
+        "en": "Which village or city are you from?",
+    },
+    "title": {
+        "hi": "आपके अनुभव का नाम क्या होगा?",
+        "en": "What would you like to call your experience?",
+    },
+    "description": {
+        "hi": "अपने अनुभव के बारे में थोड़ा और बताएं।",
+        "en": "Tell us a bit more about your experience.",
+    },
     "price": {
         "hi": "आप प्रति व्यक्ति कितने रुपये लेते हैं?",
         "en": "How much do you charge per person?",
@@ -76,9 +92,9 @@ _JOINERS = {"hi": " और ", "en": " and "}
 
 
 def compute_missing(raw: dict) -> list:
-    """Critical numbers the host did not mention — the follow-up asks about these."""
+    """Critical fields the host did not mention — the follow-up asks about these."""
     missing = []
-    for field in ("price",):
+    for field in ("host_name", "village_name", "title", "description", "price"):
         value = raw.get(field)
         if value is None or str(value).strip() == "":
             missing.append(field)

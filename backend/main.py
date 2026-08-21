@@ -10,16 +10,20 @@ import math
 import os
 from contextlib import asynccontextmanager
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from sqlalchemy.orm import Session
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.database import Base, engine
 from app.models.poi import POI
+from app.models.experience import Experience
 from app.routes.admin import router as admin_router
+from app.database import get_db
 from app.routes.auth import router as auth_router
 from app.routes.experiences import router as experiences_router
+from app.routes.bookings import router as bookings_router
 from app.routes.reviews import router as reviews_router
 from app.services.itinerary_service import generate_itinerary
 from app.services.voice_service import structure_listing
@@ -174,20 +178,23 @@ async def experiences_nearby(
     radius_km: float = Query(10.0, ge=1.0, le=60.0, description="Search radius in km (max 60)"),
     category: str | None = None,
     max_price: float | None = None,
+    db: Session = Depends(get_db),
 ):
     """Return experiences within radius_km of the city/town centre."""
     geo = await _geocode_city(city)
     center_lat, center_lng = geo["lat"], geo["lng"]
 
-    all_items = [e for e in EXPERIENCES if e.get("is_active", True)]
+    all_items = db.query(Experience).filter(Experience.is_active == True).all()
     results = []
     for e in all_items:
-        dist = _haversine_km(center_lat, center_lng, e["lat"], e["lng"])
+        if e.lat is None or e.lng is None:
+            continue
+        dist = _haversine_km(center_lat, center_lng, e.lat, e.lng)
         if dist <= radius_km:
-            results.append({"experience": e, "distance_km": round(dist, 2)})
+            results.append({"experience": e.to_dict(), "distance_km": round(dist, 2)})
 
     if category and category != "all":
-        results = [r for r in results if r["experience"]["category"] == category]
+        results = [r for r in results if r["experience"].get("category") == category]
     if max_price is not None:
         results = [r for r in results if r["experience"]["price"] <= max_price]
 
@@ -243,18 +250,6 @@ def list_experiences(
 
 
 # ---------------------------------------------------------------------------
-# F9 -- Single experience by ID
-# ---------------------------------------------------------------------------
-
-@app.get("/experiences/{experience_id}")
-def get_experience(experience_id: int):
-    for e in EXPERIENCES:
-        if e["id"] == experience_id:
-            return e
-    raise HTTPException(status_code=404, detail="Experience not found")
-
-
-# ---------------------------------------------------------------------------
 # Guides -- find local guides in a city/town
 # ---------------------------------------------------------------------------
 
@@ -294,29 +289,12 @@ async def list_guides(
     }
 
 
-# ---------------------------------------------------------------------------
-# F18 -- Reviews (seeded demo data)
-# ---------------------------------------------------------------------------
-
-DEMO_REVIEWS = [
-    {"id": 1, "experience_id": 1, "traveller_name": "Sneha M.", "rating": 5, "comment": "Best farm thali I have ever eaten.", "created_at": "2026-07-12T10:00:00Z"},
-    {"id": 2, "experience_id": 2, "traveller_name": "Rohan D.", "rating": 5, "comment": "Came for the food, stayed for the conversation.", "created_at": "2026-06-28T09:30:00Z"},
-    {"id": 3, "experience_id": 3, "traveller_name": "Ananya K.", "rating": 4, "comment": "Throwing the pot was harder than it looks.", "created_at": "2026-07-05T12:00:00Z"},
-    {"id": 4, "experience_id": 4, "traveller_name": "David L.", "rating": 5, "comment": "Shankar Lal knows every stone of Shamlaji.", "created_at": "2026-07-18T08:00:00Z"},
-    {"id": 5, "experience_id": 5, "traveller_name": "Priya V.", "rating": 5, "comment": "A gentle introduction to miniature painting.", "created_at": "2026-07-20T15:00:00Z"},
-]
-
-
-@app.get("/experiences/{experience_id}/reviews")
-def get_reviews(experience_id: int):
-    return [r for r in DEMO_REVIEWS if r["experience_id"] == experience_id]
-
-
 # Register upstream routers AFTER our geo routes to avoid path conflicts
 app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(experiences_router)
 app.include_router(reviews_router)
+app.include_router(bookings_router)
 
 
 # ---------------------------------------------------------------------------

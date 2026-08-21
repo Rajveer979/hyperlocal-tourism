@@ -1,7 +1,8 @@
 import { useLocation } from 'react-router-dom'
+import { useApp } from '../../context/AppContext.jsx'
 import { useApi } from '../../hooks/useApi.js'
 import { getHostBookings, getHostEarnings } from '../../services/bookings.js'
-import { getExperiences } from '../../services/experiences.js'
+import { getExperiencesByHost } from '../../services/experiences.js'
 import { formatINR, formatDate, formatTime } from '../../utils/format.js'
 import ListenButton from '../../components/experience/ListenButton.jsx'
 import Spinner from '../../components/ui/Spinner.jsx'
@@ -11,9 +12,11 @@ export default function HostDashboard() {
   const location = useLocation()
   const justPublished = location.state?.published
 
-  const { data: bookings, loading } = useApi(() => getHostBookings(1), [])
-  const { data: earnings } = useApi(() => getHostEarnings(1), [])
-  const { data: listings } = useApi(() => getExperiences({}), [])
+  const { user } = useApp()
+  const hostId = user?.id || 0
+  const { data: bookings, loading } = useApi(() => getHostBookings(hostId), [hostId])
+  const { data: earnings } = useApi(() => getHostEarnings(hostId), [hostId])
+  const { data: listings } = useApi(() => getExperiencesByHost(hostId), [hostId])
 
   const summaryText = `You have ${earnings?.total || 0} rupees in total earnings. ${bookings?.length || 0} upcoming bookings.`
 
@@ -74,19 +77,22 @@ export default function HostDashboard() {
 
       {/* My listings (availability toggle) */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-stone-800">My listings</h2>
-      <div className="space-y-3">
-        {(listings ?? []).slice(0, 3).map((l) => (
-          <div key={l.id} className="card flex items-center justify-between gap-3">
-            <div>
-              <p className="font-semibold text-stone-800">{l.title}</p>
-              <p className="text-sm text-stone-500">{l.village_name} · {formatINR(l.price)}</p>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-stone-600">
-              <input type="checkbox" className="h-4 w-4 accent-brand" defaultChecked={l.is_active} />
-              Active
-            </label>
-          </div>
-        ))}
+      <div className="space-y-3">          {(listings ?? []).length === 0 ? (
+            <p className="card text-sm text-stone-400">No listings yet. Create one to get started!</p>
+          ) : (
+            (listings ?? []).map((l) => (
+              <div key={l.id} className="card flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-stone-800">{l.title}</p>
+                  <p className="text-sm text-stone-500">{l.village_name} · {formatINR(l.price)}</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-stone-600">
+                  <input type="checkbox" className="h-4 w-4 accent-brand" defaultChecked={l.is_active} />
+                  Active
+                </label>
+              </div>
+            ))
+          )}
       </div>
     </div>
   )

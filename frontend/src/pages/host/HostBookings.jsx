@@ -1,14 +1,17 @@
 import { useApi } from '../../hooks/useApi.js'
+import { useApp } from '../../context/AppContext.jsx'
 import { getHostBookings, getHostEarnings } from '../../services/bookings.js'
-import { getExperiences } from '../../services/experiences.js'
+import { getExperiencesByHost } from '../../services/experiences.js'
 import { formatINR, formatDate } from '../../utils/format.js'
 import Spinner from '../../components/ui/Spinner.jsx'
 
 // New bookings page for hosts — shows incoming traveller bookings
 export default function HostBookings() {
-  const { data: bookings, loading } = useApi(() => getHostBookings(1), [])
-  const { data: earnings } = useApi(() => getHostEarnings(1), [])
-  const { data: listings } = useApi(() => getExperiences({}), [])
+  const { user } = useApp()
+  const hostId = user?.id || 0
+  const { data: bookings, loading } = useApi(() => getHostBookings(hostId), [hostId])
+  const { data: earnings } = useApi(() => getHostEarnings(hostId), [hostId])
+  const { data: listings } = useApi(() => getExperiencesByHost(hostId), [hostId])
 
   // Map experience_id to experience details
   const getExperience = (id) => listings?.find((l) => l.id === id)

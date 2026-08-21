@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import { useApi } from '../hooks/useApi.js'
-import { getExperiences } from '../services/experiences.js'
+import { getExperiences, getExperiencesByHost } from '../services/experiences.js'
 import ExperienceCard from '../components/experience/ExperienceCard.jsx'
 import Spinner from '../components/ui/Spinner.jsx'
 
@@ -11,7 +11,11 @@ export default function Home() {
   const navigate = useNavigate()
   const [city, setCity] = useState('')
 
-  const { data: featured, loading } = useApi(() => getExperiences({}), [])
+  const isHost = user?.role === 'host'
+  const { data: featured, loading } = useApi(
+    () => isHost && user?.id ? getExperiencesByHost(user.id) : getExperiences({}),
+    [isHost, user?.id]
+  )
 
   const searchCity = (e) => {
     e.preventDefault()
@@ -76,27 +80,53 @@ export default function Home() {
         </section>
       )}
 
-      {/* Featured */}
+      {/* Featured / My Listings */}
       <section className="mx-auto max-w-6xl px-4 pb-16">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-stone-800">Featured experiences</h2>
-          <Link to="/search" className="text-sm font-semibold text-brand-dark hover:underline">
-            Search by city →
-          </Link>
+          <h2 className="text-2xl font-bold text-stone-800">{isHost ? 'My Listings' : 'Featured experiences'}</h2>
+          {!isHost && (
+            <Link to="/search" className="text-sm font-semibold text-brand-dark hover:underline">
+              Search by city →
+            </Link>
+          )}
+          {isHost && (
+            <div className="flex gap-3">
+              <Link to="/host/manual" className="text-sm font-semibold text-brand-dark hover:underline">
+                + Add listing
+              </Link>
+              <Link to="/host/voice" className="text-sm font-semibold text-brand-dark hover:underline">
+                🎙️ Voice listing
+              </Link>
+            </div>
+          )}
         </div>
         {loading ? (
-          <Spinner label="Loading experiences…" />
+          <Spinner label={isHost ? 'Loading your listings…' : 'Loading experiences…'} />
         ) : featured && featured.length > 0 ? (
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.slice(0, 6).map((e) => (
+            {featured.map((e) => (
               <ExperienceCard key={e.id} experience={e} />
             ))}
           </div>
         ) : (
           <div className="card mx-auto max-w-md text-center">
-            <p className="text-4xl">🏘️</p>
-            <p className="mt-3 text-lg font-semibold text-stone-700">No experiences yet</p>
-            <p className="mt-1 text-sm text-stone-500">Hosts haven't listed any experiences yet. Check back soon!</p>
+            {isHost ? (
+              <>
+                <p className="text-4xl">🎙️</p>
+                <p className="mt-3 text-lg font-semibold text-stone-700">You have no listings yet</p>
+                <p className="mt-1 text-sm text-stone-500">Create your first listing by speaking or filling a form.</p>
+                <div className="mt-4 flex justify-center gap-3">
+                  <Link to="/host/voice" className="btn-primary">🎙️ Record voice</Link>
+                  <Link to="/host/manual" className="btn-secondary">📝 Fill form</Link>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl">🏘️</p>
+                <p className="mt-3 text-lg font-semibold text-stone-700">No experiences yet</p>
+                <p className="mt-1 text-sm text-stone-500">Hosts haven't listed any experiences yet. Check back soon!</p>
+              </>
+            )}
           </div>
         )}
       </section>

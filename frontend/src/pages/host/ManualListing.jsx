@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useApp } from '../../context/AppContext.jsx'
 import ListingForm from '../../components/host/ListingForm.jsx'
 import { createExperience, uploadPhoto } from '../../services/experiences.js'
 
 // F3 — the typed fallback. Always available; voice is never forced.
 export default function ManualListing() {
   const navigate = useNavigate()
+  const { user } = useApp()
   const [saving, setSaving] = useState(false)
 
   const publish = async (values) => {
@@ -13,7 +15,7 @@ export default function ManualListing() {
     try {
       const photoFiles = values._photoFiles || []
       const { _photoFiles, ...data } = values
-      const created = await createExperience(data)
+      const created = await createExperience(data, user?.id || 0)
       // Upload photos one by one after listing is created
       for (const file of photoFiles) {
         try {

@@ -358,11 +358,7 @@ export const reviews = [
 ]
 
 // --- Bookings (F11) ----------------------------------------------------------
-export const bookings = [
-  { id: 1, experience_id: 1, user_name: 'Guest A', date: '2025-04-01', guests: 2, status: 'confirmed' },
-  { id: 2, experience_id: 5, user_name: 'Guest B', date: '2025-04-05', guests: 4, status: 'confirmed' },
-  { id: 3, experience_id: 10, user_name: 'Guest C', date: '2025-04-10', guests: 1, status: 'pending' },
-]
+export const bookings = []
 
 export const hostEarnings = [
   { host_id: 1, month: '2025-04', amount: 4500, bookings: 10 },

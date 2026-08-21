@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
+import { useApp } from '../../context/AppContext.jsx'
 import ListingForm from '../../components/host/ListingForm.jsx'
 import { createExperience, uploadPhoto } from '../../services/experiences.js'
 
@@ -8,6 +9,7 @@ import { createExperience, uploadPhoto } from '../../services/experiences.js'
 export default function ListingReview() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user } = useApp()
 
   let listing = location.state?.listing
   if (!listing) {
@@ -38,7 +40,7 @@ export default function ListingReview() {
     try {
       const photoFiles = values._photoFiles || []
       const { _photoFiles, ...data } = values
-      const created = await createExperience(data)
+      const created = await createExperience(data, user?.id || 0)
       // Upload photos one by one (after the listing exists)
       for (const file of photoFiles) {
         try {

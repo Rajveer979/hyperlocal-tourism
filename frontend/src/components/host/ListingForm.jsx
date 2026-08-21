@@ -9,9 +9,11 @@ export default function ListingForm({ initial = {}, onPublish, saving = false })
     village_name: initial.village_name || '',
     title: initial.title || '',
     description: initial.description || '',
+    description_en: initial.description_en || '',
     price: initial.price || '',
     days: initial.availability?.days || [],
     languages: initial.languages || ['hi'],
+    original_language: initial.original_language || 'hi',
     women_hosted: false,
     photos: initial.photos || [],
   })

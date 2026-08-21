@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { hosts, experiences } from '../../data/mockData.js'
+import { hosts } from '../../data/mockData.js'
 import { getUsers } from '../../services/admin.js'
+import { getExperiences, clearLocalListings } from '../../services/experiences.js'
 import { useApi } from '../../hooks/useApi.js'
 import VerifiedBadge from '../../components/experience/VerifiedBadge.jsx'
 import Badge from '../../components/ui/Badge.jsx'
@@ -67,23 +68,49 @@ export default function AdminPanel() {
       </div>
 
       <h2 className="mt-10 mb-3 text-lg font-semibold text-stone-800">Listings</h2>
-      <div className="space-y-3">
-        {experiences.length === 0 ? (
-          <p className="card text-sm text-stone-400">No listings yet.</p>
-        ) : (
-          experiences.map((e) => (
-            <div key={e.id} className="card flex items-center justify-between gap-3">
-              <div>
-                <p className="font-semibold text-stone-800">{e.title}</p>
-                <p className="text-sm text-stone-500">{e.village_name} · {e.price ? `₹${e.price}` : ''}</p>
-              </div>
-              <button className={hidden[e.id] ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHidden(e.id)}>
-                {hidden[e.id] ? 'Unhide' : 'Hide listing'}
-              </button>
+      <ListingsSection hidden={hidden} toggleHidden={toggleHidden} />
+    </div>
+  )
+}
+
+function ListingsSection({ hidden, toggleHidden }) {
+  const [listings, setListings] = useState([])
+  const [cleared, setCleared] = useState(false)
+  const { data, loading } = useApi(() => getExperiences({}), [])
+
+  if (loading && !cleared) return <Spinner label="Loading listings…" />
+
+  const items = cleared ? [] : (data || [])
+
+  const handleClearAll = () => {
+    clearLocalListings()
+    setCleared(true)
+  }
+
+  return (
+    <div className="space-y-3">
+      {items.length > 0 && (
+        <div className="flex justify-end">
+          <button className="rounded-lg bg-red-50 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-100" onClick={handleClearAll}>
+            🗑️ Clear all listings
+          </button>
+        </div>
+      )}
+      {items.length === 0 ? (
+        <p className="card text-sm text-stone-400">No listings yet.</p>
+      ) : (
+        items.map((e) => (
+          <div key={e.id} className="card flex items-center justify-between gap-3">
+            <div>
+              <p className="font-semibold text-stone-800">{e.title}</p>
+              <p className="text-sm text-stone-500">{e.village_name} · {e.price ? `₹${e.price}` : ''}</p>
             </div>
-          ))
-        )}
-      </div>
+            <button className={hidden[e.id] ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHidden(e.id)}>
+              {hidden[e.id] ? 'Unhide' : 'Hide listing'}
+            </button>
+          </div>
+        ))
+      )}
     </div>
   )
 }

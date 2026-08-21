@@ -62,11 +62,15 @@ def list_experiences(
     max_price: int | None = None,
     women_hosted: bool | None = None,
     language: str | None = None,
+    host_id: int | None = None,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
     stmt = select(Experience).where(Experience.is_active == True)
+
+    if host_id is not None:
+        stmt = stmt.where(Experience.host_id == host_id)
 
     if q:
         like = f"%{q}%"

@@ -55,46 +55,60 @@ function markMockLogin(email) {
 }
 
 export async function login(username, password) {
-  if (!isLive('auth')) {
-    await delay(300)
-    const demo = mockDemoUser(username, password)
-    if (demo) {
-      markMockLogin(demo.user.email)
-      return demo
+  // Always use the real backend — data goes to the database, not localStorage
+  try {
+    return await request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: username, password }),
+    })
+  } catch (err) {
+    // Fallback to mock only if backend is unreachable
+    if (err.message?.includes('fetch') || err.message?.includes('Failed')) {
+      console.warn('Backend unreachable, falling back to mock login')
+      await delay(300)
+      const demo = mockDemoUser(username, password)
+      if (demo) {
+        markMockLogin(demo.user.email)
+        return demo
+      }
+      const u = getMockUsers().find((u) => u.email === username && u.password === password)
+      if (!u) throw new Error('Invalid email or password')
+      const { password: _pw, ...safe } = u
+      markMockLogin(u.email)
+      return { token: `mock-${Date.now()}`, role: u.role, user: safe }
     }
-    const u = getMockUsers().find((u) => u.email === username && u.password === password)
-    if (!u) throw new Error('Invalid email or password')
-    const { password: _pw, ...safe } = u
-    markMockLogin(u.email)
-    return { token: `mock-${Date.now()}`, role: u.role, user: safe }
+    throw err
   }
-  return request('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email: username, password }),
-  })
 }
 
 export async function signup(data) {
-  if (!isLive('auth')) {
-    await delay(400)
-    const users = getMockUsers()
-    if (users.some((u) => u.email === data.email)) throw new Error('An account with this email already exists')
-    const user = {
-      id: Date.now(),
-      name: data.name,
-      email: data.email,
-      phone: data.phone || '',
-      role: data.role,
-      language_preference: data.language_preference || 'hi',
+  // Always use the real backend — data goes to the database, not localStorage
+  try {
+    return await request('/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  } catch (err) {
+    // Fallback to mock only if backend is unreachable
+    if (err.message?.includes('fetch') || err.message?.includes('Failed')) {
+      console.warn('Backend unreachable, falling back to mock signup')
+      await delay(400)
+      const users = getMockUsers()
+      if (users.some((u) => u.email === data.email)) throw new Error('An account with this email already exists')
+      const user = {
+        id: Date.now(),
+        name: data.name,
+        email: data.email,
+        phone: data.phone || '',
+        role: data.role,
+        language_preference: data.language_preference || 'hi',
+      }
+      users.push({ ...user, password: data.password })
+      saveMockUsers(users)
+      return { token: `mock-${Date.now()}`, role: user.role, user }
     }
-    users.push({ ...user, password: data.password })
-    saveMockUsers(users)
-    return { token: `mock-${Date.now()}`, role: user.role, user }
+    throw err
   }
-  return request('/auth/signup', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
 }
 
 

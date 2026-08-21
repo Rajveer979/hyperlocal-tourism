@@ -15,7 +15,7 @@ import { MOCK_GUIDES } from '../data/mockGuides.js'
 // ── Create ──────────────────────────────────────────────────────────────
 const LS_KEY = 'padaav_listings'
 
-function getLocalListings() {
+export function getLocalListings() {
   try {
     return JSON.parse(localStorage.getItem(LS_KEY) || '[]')
   } catch {
@@ -29,12 +29,16 @@ function saveLocalListing(listing) {
   localStorage.setItem(LS_KEY, JSON.stringify(all))
 }
 
-export async function createExperience(data) {
+export function clearLocalListings() {
+  localStorage.removeItem(LS_KEY)
+}
+
+export async function createExperience(data, hostId = 0) {
   if (!isLive('experiences')) {
     await delay(300)
     const local = {
       id: Date.now(),
-      host_id: 0,
+      host_id: hostId,
       ...data,
       is_active: true,
       created_at: new Date().toISOString(),
@@ -46,6 +50,16 @@ export async function createExperience(data) {
     method: 'POST',
     body: JSON.stringify(data),
   })
+}
+
+export async function getExperiencesByHost(hostId) {
+  if (!isLive('experiences')) {
+    await delay(200)
+    const items = getLocalListings().filter((e) => e.host_id === hostId)
+    return items.map(withHost)
+  }
+  const params = new URLSearchParams({ host_id: hostId }).toString()
+  return request(`/experiences?${params}`)
 }
 
 export async function uploadPhoto(experienceId, file) {
@@ -97,9 +111,10 @@ export async function getExperiences(filters = {}) {
       const q = filters.q.toLowerCase()
       items = items.filter(
         (e) =>
-          e.title.toLowerCase().includes(q) ||
-          e.description.toLowerCase().includes(q) ||
-          e.village_name.toLowerCase().includes(q),
+          (e.title || '').toLowerCase().includes(q) ||
+          (e.description || '').toLowerCase().includes(q) ||
+          (e.village_name || '').toLowerCase().includes(q) ||
+          (e.description_en || '').toLowerCase().includes(q),
       )
     }
     return items.map(withHost)
