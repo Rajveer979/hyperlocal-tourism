@@ -75,7 +75,7 @@ export default function HostDashboard() {
       {/* My listings (availability toggle) */}
       <h2 className="mt-10 mb-3 text-lg font-semibold text-stone-800">My listings</h2>
       <div className="space-y-3">
-        {listings?.slice(0, 3).map((l) => (
+        {(listings ?? []).slice(0, 3).map((l) => (
           <div key={l.id} className="card flex items-center justify-between gap-3">
             <div>
               <p className="font-semibold text-stone-800">{l.title}</p>

@@ -19,8 +19,8 @@ export const LIVE_FEATURES = {
   reviews: true, // GET + POST reviews (completed-booking gate)
   admin: true, // GET /admin/users
   experiences: true, // POST create + GET list + GET detail + photo upload
-  // Not built yet (backend teammate): bookings, route,
-  // itinerary, offline, daypass, pois
+  itinerary: true, // POST /itinerary/generate — AI day plan
+  // Not built yet: bookings, route, offline, daypass
 }
 
 // True when the app is live AND the backend actually serves this feature.

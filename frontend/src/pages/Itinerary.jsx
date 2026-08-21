@@ -13,7 +13,18 @@ export default function Itinerary() {
   const experience = location.state?.experience
   const booking = location.state?.booking
 
-  const { data: steps, loading } = useApi(() => getItinerary(bookingId), [bookingId])
+  const { data: steps, loading } = useApi(
+    () => getItinerary(bookingId, {
+      id: experience?.id,
+      title: experience?.title,
+      village_name: experience?.village_name,
+      description: experience?.description || experience?.description_en,
+      lat: experience?.lat,
+      lng: experience?.lng,
+      slot_time: booking?.slot_time,
+    }),
+    [bookingId]
+  )
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">

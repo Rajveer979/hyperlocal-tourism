@@ -15,6 +15,7 @@ import VoiceListing from './pages/host/VoiceListing.jsx'
 import ListingReview from './pages/host/ListingReview.jsx'
 import ManualListing from './pages/host/ManualListing.jsx'
 import HostDashboard from './pages/host/HostDashboard.jsx'
+import HostBookings from './pages/host/HostBookings.jsx'
 import Login from './pages/Login.jsx'
 import AdminPanel from './pages/admin/AdminPanel.jsx'
 
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="/host/voice/review" element={<ListingReview />} />
           <Route path="/host/manual" element={<ManualListing />} />
           <Route path="/host/dashboard" element={<HostDashboard />} />
+          <Route path="/host/bookings" element={<HostBookings />} />
           <Route path="/login" element={<Login />} />
           <Route path="/admin" element={<AdminPanel />} />
           <Route path="*" element={<Home />} />

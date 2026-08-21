@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import { getExperienceById } from '../services/experiences.js'
 
@@ -157,6 +157,15 @@ export default function MyBookings() {
               </div>
 
               <div className="flex items-center gap-2">
+                {exp && !isCancelled && !isPast && (
+                  <Link
+                    to={`/itinerary/${booking.id}`}
+                    state={{ experience: exp, booking }}
+                    className="rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-200"
+                  >
+                    📋 Day Plan
+                  </Link>
+                )}
                 {exp && !isCancelled && !isPast && (
                   <Link
                     to={`/experience/${exp.id}`}

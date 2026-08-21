@@ -1,16 +1,18 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useApi } from '../hooks/useApi.js'
+import { useApp } from '../context/AppContext.jsx'
 import { getExperienceById } from '../services/experiences.js'
 import Spinner from '../components/ui/Spinner.jsx'
 
 export default function BookingConfirm() {
   const { id } = useParams()
+  const { user } = useApp()
   const { data: exp, loading } = useApi(() => getExperienceById(id), [id])
   const [date, setDate] = useState('')
   const [time, setTime] = useState('')
   const [groupSize, setGroupSize] = useState(1)
-  const [name, setName] = useState('')
+  const [name, setName] = useState(user?.name || '')
   const [phone, setPhone] = useState('')
   const [confirmed, setConfirmed] = useState(false)
 
@@ -20,9 +22,7 @@ export default function BookingConfirm() {
   const total = (exp.price || 0) * groupSize
 
   // Available time slots (from experience or defaults)
-  const timeSlots = exp.duration_minutes > 120
-    ? ['06:00', '07:00', '08:00']
-    : ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00']
+  const timeSlots = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00']
 
   const today = new Date().toISOString().split('T')[0]
   const canConfirm = date && time && name.trim().length > 0
@@ -35,7 +35,7 @@ export default function BookingConfirm() {
     const booking = {
       id: Date.now(),
       experience_id: exp.id,
-      traveller_name: name || 'Demo traveller',
+      traveller_name: user?.name || name || 'Traveller',
       slot_time: `${date}T${time}`,
       group_size: groupSize,
       status: 'confirmed',
@@ -69,7 +69,14 @@ export default function BookingConfirm() {
             📞 The host {exp.host?.name} will contact you on <span className="font-semibold">{phone || 'your provided number'}</span> to confirm details.
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Link to="/bookings" className="btn-primary flex-1 text-center">📋 My Bookings</Link>
+            <Link
+              to={`/itinerary/${Date.now()}`}
+              state={{ experience: exp, booking: { slot_time: `${date}T${time}`, group_size: groupSize } }}
+              className="flex-1 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600 text-center"
+            >
+              📋 View Day Plan
+            </Link>
+            <Link to="/bookings" className="btn-primary flex-1 text-center">My Bookings</Link>
             <Link to="/" className="btn-secondary flex-1 text-center">Home</Link>
           </div>
         </div>
@@ -88,8 +95,7 @@ export default function BookingConfirm() {
           {/* Experience summary */}
           <div className="card">
             <h2 className="mb-2 font-semibold text-stone-800">{exp.title}</h2>
-            <p className="text-sm text-stone-500">📍 {exp.village_name} · {exp.category}</p>
-            <p className="mt-1 text-sm text-stone-500">⏱ {exp.duration_minutes} min · {exp.capacity} spots max</p>
+            <p className="text-sm text-stone-500">📍 {exp.village_name}</p>
           </div>
 
           {/* Your details */}
@@ -148,7 +154,7 @@ export default function BookingConfirm() {
               </div>
             </div>
             <div>
-              <label className="label">Group size (max {exp.capacity || 8})</label>
+              <label className="label">Group size</label>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
@@ -161,7 +167,7 @@ export default function BookingConfirm() {
                 <button
                   type="button"
                   className="rounded-lg border border-stone-300 px-3 py-1 text-lg font-bold hover:bg-stone-100"
-                  onClick={() => setGroupSize(Math.min(exp.capacity || 8, groupSize + 1))}
+                  onClick={() => setGroupSize(Math.min(10, groupSize + 1))}
                 >
                   +
                 </button>

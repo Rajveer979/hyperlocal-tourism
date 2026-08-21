@@ -16,10 +16,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app import config
 from app.database import Base, engine
+from app.models.poi import POI
 from app.routes.admin import router as admin_router
 from app.routes.auth import router as auth_router
 from app.routes.experiences import router as experiences_router
 from app.routes.reviews import router as reviews_router
+from app.services.itinerary_service import generate_itinerary
 from app.services.voice_service import structure_listing
 from app.experiences_data import EXPERIENCES
 from app.guides_data import GUIDES
@@ -28,6 +30,12 @@ from app.guides_data import GUIDES
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    # Seed POIs on startup
+    try:
+        from seed.seed_pois import seed_pois
+        seed_pois()
+    except Exception as e:
+        print(f"[WARN] POI seeding failed: {e}")
     yield
 
 
@@ -309,3 +317,38 @@ app.include_router(admin_router)
 app.include_router(auth_router)
 app.include_router(experiences_router)
 app.include_router(reviews_router)
+
+
+# ---------------------------------------------------------------------------
+# F12 -- AI Itinerary Builder
+# ---------------------------------------------------------------------------
+
+@app.post("/itinerary/generate")
+def itinerary_generate(
+    booking_id: int = Form(...),
+    experience_id: int = Form(...),
+    title: str = Form(""),
+    village: str = Form(""),
+    slot_time: str = Form(""),
+    description: str = Form(""),
+    lat: float = Form(23.0),
+    lng: float = Form(72.5),
+    radius_km: float = Form(20.0),
+):
+    """Generate a day plan for a booked experience."""
+    # Load POIs from database
+    from sqlalchemy.orm import Session as Ses
+    with Ses(engine) as db:
+        pois = [p.to_dict() for p in db.query(POI).all()]
+
+    result = generate_itinerary(
+        title=title,
+        village=village,
+        slot_time=slot_time,
+        description=description,
+        lat=lat,
+        lng=lng,
+        radius_km=radius_km,
+        pois=pois,
+    )
+    return result

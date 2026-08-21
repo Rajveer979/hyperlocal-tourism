@@ -20,6 +20,7 @@ function pinIcon(emoji, price) {
 }
 
 export default function ExperiencePin({ experience }) {
+  if (!experience.lat || !experience.lng) return null
   const cat = experience.category === 'food' ? '🍲' : experience.category === 'craft' ? '🎨' : '🏛️'
   const icon = pinIcon(cat, formatINR(experience.price))
   return (

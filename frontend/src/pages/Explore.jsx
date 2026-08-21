@@ -25,8 +25,8 @@ export default function Explore() {
     let items = [...data]
     if (filters.category && filters.category !== 'all') items = items.filter((e) => e.category === filters.category)
     if (filters.maxPrice) items = items.filter((e) => e.price <= Number(filters.maxPrice))
-    if (filters.womenHosted) items = items.filter((e) => e.host?.is_women_hosted)
-    if (filters.language && filters.language !== 'all') items = items.filter((e) => e.languages_spoken.includes(filters.language))
+    if (filters.womenHosted) items = items.filter((e) => e.women_hosted || e.host?.is_women_hosted)
+    if (filters.language && filters.language !== 'all') items = items.filter((e) => (e.languages || []).includes(filters.language))
     if (filters.q) {
       const q = filters.q.toLowerCase()
       items = items.filter((e) => [e.title, e.description, e.village_name].join(' ').toLowerCase().includes(q))

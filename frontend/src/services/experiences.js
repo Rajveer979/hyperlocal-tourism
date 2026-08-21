@@ -88,10 +88,10 @@ export async function getExperiences(filters = {}) {
       items = items.filter((e) => e.price <= Number(filters.maxPrice))
     }
     if (filters.womenHosted) {
-      items = items.filter((e) => e.host && e.host.is_women_hosted)
+      items = items.filter((e) => e.women_hosted || (e.host && e.host.is_women_hosted))
     }
     if (filters.language && filters.language !== 'all') {
-      items = items.filter((e) => e.languages_spoken.includes(filters.language))
+      items = items.filter((e) => (e.languages || []).includes(filters.language))
     }
     if (filters.q) {
       const q = filters.q.toLowerCase()
@@ -140,7 +140,11 @@ export async function getNearbyExperiences(city, radiusKm = 10) {
     const R = 6371
     const toRad = (d) => (d * Math.PI) / 180
 
-    const results = experiences
+    // Include seeded + locally-saved listings
+    const allItems = [...experiences, ...getLocalListings()]
+
+    const results = allItems
+      .filter((e) => e.lat && e.lng)
       .map((e) => {
         const dlat = toRad(e.lat - center.lat)
         const dlng = toRad(e.lng - center.lng)
@@ -152,6 +156,14 @@ export async function getNearbyExperiences(city, radiusKm = 10) {
       })
       .filter((r) => r.distance_km <= radiusKm)
       .sort((a, b) => a.distance_km - b.distance_km)
+
+    // Also include listings without coordinates that match the city/village name
+    const cityLower = key
+    allItems
+      .filter((e) => (!e.lat || !e.lng) && e.village_name?.toLowerCase().includes(cityLower))
+      .forEach((e) => {
+        results.push({ experience: withHost(e), distance_km: 0 })
+      })
 
     return {
       city,

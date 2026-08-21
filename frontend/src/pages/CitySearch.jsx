@@ -150,7 +150,7 @@ export default function CitySearch() {
             <MapView center={[center.lat, center.lng]} zoom={10} className="h-[420px]">
               <RadiusCircle lat={center.lat} lng={center.lng} radiusKm={RADIUS_KM} />
               <CityMarker lat={center.lat} lng={center.lng} />
-              {results.map((r) => (
+              {results.filter((r) => r.experience.lat && r.experience.lng).map((r) => (
                 <ExperiencePin key={r.experience.id} experience={r.experience} />
               ))}
               {showGuides && guides.map((g) => (

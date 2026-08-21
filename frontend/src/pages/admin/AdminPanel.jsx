@@ -75,7 +75,7 @@ export default function AdminPanel() {
             <div key={e.id} className="card flex items-center justify-between gap-3">
               <div>
                 <p className="font-semibold text-stone-800">{e.title}</p>
-                <p className="text-sm text-stone-500">{e.village_name} · {e.category}</p>
+                <p className="text-sm text-stone-500">{e.village_name} · {e.price ? `₹${e.price}` : ''}</p>
               </div>
               <button className={hidden[e.id] ? 'btn-primary' : 'btn-secondary'} onClick={() => toggleHidden(e.id)}>
                 {hidden[e.id] ? 'Unhide' : 'Hide listing'}
